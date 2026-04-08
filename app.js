@@ -1,4 +1,4 @@
-// Reference Board Builder_5
+// Reference Board Builder_6
 // Stages A-D:
 // - read folder tree
 // - analyze structure
@@ -13,7 +13,7 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
-const APP_VERSION = "Reference Board Builder_5";
+const APP_VERSION = "Reference Board Builder_6";
 const APP_META_ID = "reference-board-builder";
 const FRAME_VERTICAL_GAP = 1200;
 const COLUMN_HEADER_FILL = "#f4d44d";
@@ -24,9 +24,8 @@ const TEXT_BOX_BORDER = "#cbd5e1";
 const PREVIEW_FILL = "#d1d5db";
 const PREVIEW_BORDER = "#9ca3af";
 const FRAME_FILL = "#808080";
-const COLUMN_HEADER_BORDER_WIDTH = 24;
-const COLUMN_HEADER_FONT_SIZE = 420;
-const COLUMN_HEADER_BORDER_RADIUS = 200;
+const COLUMN_HEADER_BORDER_WIDTH = 56;
+const COLUMN_HEADER_FONT_SIZE = 700;
 const SUBTYPE_HEADER_FONT_SIZE = 200;
 
 const state = {
@@ -648,9 +647,10 @@ function describeLayout(layout) {
     `Максимальная высота колонки: ${formatNumber(layout.summary.maxColumnHeight)}`,
     `Ширина фрейма: ${formatNumber(layout.config.frameWidth)}`,
     `Сортировка по цвету: ${layout.config.sortByColor ? "включена" : "выключена"}`,
-    `Кнопки превью и создания доски уже активны.`,
+    `Используй вкладку статистики для проверки структуры и раскладки.`,
   ].join("\n");
 }
+
 
 async function handleFolderSelected(fileList) {
   const files = Array.from(fileList || []).filter(isImageFile);
@@ -668,8 +668,23 @@ async function handleFolderSelected(fileList) {
 
   const root = String(files[0].webkitRelativePath || "").split("/").filter(Boolean)[0] || "Выбранная папка";
   if (label) label.textContent = `${root} · ${files.length} файлов`;
-  setStatus(`Папка загружена: ${root}\nИзображений найдено: ${files.length}`, "info");
+
+  try {
+    const layout = await ensureLayout();
+    if (!layout) return;
+    setStatus(
+      `Папка загружена: ${root}
+Категорий: ${layout.summary.categories}
+Фреймов: ${layout.summary.frames}
+Картинок: ${layout.summary.images}`,
+      "info"
+    );
+  } catch (error) {
+    console.error(error);
+    setStatus("Не удалось обработать папку. Подробности в консоли.", "error");
+  }
 }
+
 
 async function ensureTree() {
   if (!state.files.length) {
@@ -692,6 +707,21 @@ async function ensureLayout() {
   document.getElementById("layoutResult").innerHTML = renderLayout(layout);
   document.getElementById("layoutNote").textContent = describeLayout(layout);
   return layout;
+}
+
+let refreshTimer = null;
+function scheduleStatsRefresh() {
+  if (!state.files.length || state.isRendering) return;
+  if (refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async () => {
+    try {
+      await ensureLayout();
+      setStatus("Параметры обновлены. Статистика пересчитана.", "info");
+    } catch (error) {
+      console.error(error);
+      setStatus("Не удалось пересчитать статистику. Подробности в консоли.", "error");
+    }
+  }, 180);
 }
 
 async function handleAnalyzeStructure() {
@@ -935,7 +965,6 @@ async function renderScene(scene, mode) {
         fillColor: COLUMN_HEADER_FILL,
         borderColor: OUTLINE_COLOR,
         borderWidth: COLUMN_HEADER_BORDER_WIDTH,
-        borderRadius: COLUMN_HEADER_BORDER_RADIUS,
         color: "#111111",
         fontSize: COLUMN_HEADER_FONT_SIZE,
         textAlign: "center",
@@ -1056,7 +1085,7 @@ async function renderScene(scene, mode) {
 }
 
 function setBuilderButtonsDisabled(isDisabled) {
-  const buttonIds = ["folderButton", "analyzeButton", "layoutButton", "previewButton", "buildButton"];
+  const buttonIds = ["folderButton", "buildButton"];
   buttonIds.forEach((id) => {
     const element = document.getElementById(id);
     if (element) element.disabled = isDisabled;
@@ -1112,7 +1141,7 @@ function initTabs() {
   const buttons = Array.from(document.querySelectorAll(".tab-btn"));
   const contents = {
     builder: document.getElementById("tab-builder"),
-    results: document.getElementById("tab-results"),
+    stats: document.getElementById("tab-stats"),
   };
 
   function activate(name) {
@@ -1128,6 +1157,7 @@ function initTabs() {
   });
 }
 
+
 window.addEventListener("DOMContentLoaded", () => {
   resetResults();
   setStatus("");
@@ -1135,20 +1165,19 @@ window.addEventListener("DOMContentLoaded", () => {
 
   const folderButton = document.getElementById("folderButton");
   const folderInput = document.getElementById("folderInput");
-  const analyzeButton = document.getElementById("analyzeButton");
-  const layoutButton = document.getElementById("layoutButton");
-  const previewButton = document.getElementById("previewButton");
   const buildButton = document.getElementById("buildButton");
+  const configInputs = Array.from(document.querySelectorAll("input[type='number'], input[type='checkbox']"));
 
   folderButton?.addEventListener("click", () => folderInput?.click());
   folderInput?.addEventListener("change", async (event) => {
     await handleFolderSelected(event.target.files);
   });
-  analyzeButton?.addEventListener("click", handleAnalyzeStructure);
-  layoutButton?.addEventListener("click", handleAnalyzeLayout);
-  previewButton?.addEventListener("click", async () => {
-    await handleCreate("preview");
+
+  configInputs.forEach((element) => {
+    const eventName = element.type === "checkbox" ? "change" : "input";
+    element.addEventListener(eventName, scheduleStatsRefresh);
   });
+
   buildButton?.addEventListener("click", async () => {
     await handleCreate("build");
   });
