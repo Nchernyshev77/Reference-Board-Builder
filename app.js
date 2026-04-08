@@ -1,8 +1,10 @@
-// Reference Board Builder_1
-// Stage A/B:
-// - read a folder tree from a local directory selection
-// - build internal reference structure
-// - calculate frame layout without creating widgets on the board yet
+// Reference Board Builder_4
+// Stages A-D:
+// - read folder tree
+// - analyze structure
+// - calculate layout
+// - preview widgets on board
+// - build final board with images
 
 const { board } = window.miro;
 
@@ -11,12 +13,26 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
+const APP_VERSION = "Reference Board Builder_4";
+const APP_META_ID = "reference-board-builder";
+const FRAME_VERTICAL_GAP = 1200;
+const COLUMN_HEADER_FILL = "#f4d44d";
+const SUBTYPE_HEADER_FILL = "#f4d44d";
+const OUTLINE_COLOR = "#111111";
+const TEXT_BOX_FILL = "#ffffff";
+const TEXT_BOX_BORDER = "#cbd5e1";
+const PREVIEW_FILL = "#d1d5db";
+const PREVIEW_BORDER = "#9ca3af";
+
 const state = {
   files: [],
   tree: null,
   layout: null,
+  isRendering: false,
 };
+
 const imageInfoCache = new WeakMap();
+const scaledImageCache = new WeakMap();
 
 function clampNotificationMessage(message, fallback = "Operation failed") {
   const raw = (message == null ? "" : String(message)).replace(/\s+/g, " ").trim();
@@ -30,7 +46,7 @@ async function notify(kind, message, details) {
   try {
     if (details !== undefined) {
       const logger = kind === "showError" ? console.error : kind === "showWarning" ? console.warn : console.log;
-      logger("[Reference Board Builder] notification:", safeMessage, details);
+      logger(`[${APP_VERSION}]`, safeMessage, details);
     }
 
     const notifications = board && board.notifications ? board.notifications : null;
@@ -48,7 +64,7 @@ async function notify(kind, message, details) {
       });
     }
   } catch (error) {
-    console.error("[Reference Board Builder] notification failed", { safeMessage, error, details });
+    console.error(`[${APP_VERSION}] notification failed`, { safeMessage, error, details });
   }
 }
 
@@ -82,156 +98,6 @@ function isImageFile(file) {
   const name = String(file.name || "");
   const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
   return IMAGE_EXTENSIONS.has(ext);
-}
-
-function readConfig() {
-  const getNumber = (id, fallback) => {
-    const el = document.getElementById(id);
-    const value = el ? Number(el.value) : fallback;
-    return Number.isFinite(value) ? value : fallback;
-  };
-
-  return {
-    columnShapeWidth: getNumber("columnShapeWidth", 6500),
-    columnShapeHeight: getNumber("columnShapeHeight", 2600),
-    frameShapeWidth: getNumber("frameShapeWidth", 2000),
-    frameShapeHeight: getNumber("frameShapeHeight", 800),
-    textBoxWidth: getNumber("textBoxWidth", 856),
-    textBoxHeight: getNumber("textBoxHeight", 550),
-    textFontSize: getNumber("textFontSize", 130),
-    frameWidth: getNumber("frameWidth", 12000),
-    imageGap: getNumber("imageGap", 25),
-    groupGap: getNumber("groupGap", 300),
-    innerPadding: getNumber("innerPadding", 120),
-    columnGap: getNumber("columnGap", 13000),
-    headerToFramesGap: getNumber("headerToFramesGap", 4000),
-    sortByColor: !!document.getElementById("sortByColor")?.checked,
-  };
-}
-
-function setStatus(message, tone = "info") {
-  const box = document.getElementById("statusBox");
-  if (!box) return;
-  box.className = `status${tone === "info" ? "" : ` ${tone}`}`;
-  box.textContent = message;
-}
-
-function updateStats(summary) {
-  document.getElementById("statCategories").textContent = String(summary.categories || 0);
-  document.getElementById("statFrames").textContent = String(summary.frames || 0);
-  document.getElementById("statGroups").textContent = String(summary.groups || 0);
-  document.getElementById("statImages").textContent = String(summary.images || 0);
-}
-
-function resetResults() {
-  document.getElementById("structureResult").innerHTML = "";
-  document.getElementById("layoutResult").innerHTML = "";
-  document.getElementById("layoutNote").textContent = "";
-  updateStats({ categories: 0, frames: 0, groups: 0, images: 0 });
-}
-
-function parseReferenceTree(files) {
-  const categoryMap = new Map();
-  let rootName = "";
-  const skipped = [];
-  let imageCount = 0;
-
-  for (const file of files) {
-    if (!isImageFile(file)) continue;
-
-    const relPath = String(file.webkitRelativePath || file.name || "");
-    const parts = relPath.split("/").filter(Boolean);
-    if (!parts.length) {
-      skipped.push({ fileName: file.name || "image", reason: "empty-relative-path" });
-      continue;
-    }
-
-    if (!rootName) rootName = parts[0];
-    const dirs = parts.slice(1, -1);
-    if (dirs.length < 2) {
-      skipped.push({ fileName: relPath, reason: "path-must-have-category-and-subtype" });
-      continue;
-    }
-
-    const categoryName = dirs[0];
-    const subtypeName = dirs[1];
-    const colorName = dirs.length >= 3 ? dirs.slice(2).join(" / ") : null;
-
-    let category = categoryMap.get(categoryName);
-    if (!category) {
-      category = { name: categoryName, subtypesMap: new Map() };
-      categoryMap.set(categoryName, category);
-    }
-
-    let subtype = category.subtypesMap.get(subtypeName);
-    if (!subtype) {
-      subtype = { name: subtypeName, groupsMap: new Map() };
-      category.subtypesMap.set(subtypeName, subtype);
-    }
-
-    const groupKey = colorName ? colorName : NO_COLOR_KEY;
-    let group = subtype.groupsMap.get(groupKey);
-    if (!group) {
-      group = {
-        key: groupKey,
-        name: colorName,
-        hasColorFolder: !!colorName,
-        images: [],
-      };
-      subtype.groupsMap.set(groupKey, group);
-    }
-
-    group.images.push({
-      file,
-      name: file.name || "image",
-      relativePath: relPath,
-      rootName,
-      categoryName,
-      subtypeName,
-      colorName,
-    });
-    imageCount += 1;
-  }
-
-  const categories = Array.from(categoryMap.values())
-    .map((category) => ({
-      name: category.name,
-      subtypes: Array.from(category.subtypesMap.values())
-        .map((subtype) => ({
-          name: subtype.name,
-          groups: Array.from(subtype.groupsMap.values())
-            .map((group) => ({
-              key: group.key,
-              name: group.name,
-              hasColorFolder: group.hasColorFolder,
-              images: group.images.sort((a, b) => byName(a, b)),
-            }))
-            .sort((a, b) => {
-              if (a.hasColorFolder && !b.hasColorFolder) return -1;
-              if (!a.hasColorFolder && b.hasColorFolder) return 1;
-              return byName(a, b);
-            }),
-        }))
-        .sort(byName),
-    }))
-    .sort(byName);
-
-  const summary = {
-    categories: categories.length,
-    frames: categories.reduce((sum, category) => sum + category.subtypes.length, 0),
-    groups: categories.reduce(
-      (sum, category) => sum + category.subtypes.reduce((inner, subtype) => inner + subtype.groups.length, 0),
-      0
-    ),
-    images: imageCount,
-    skipped,
-  };
-
-  return {
-    rootName,
-    categories,
-    summary,
-  };
 }
 
 function loadImage(url) {
@@ -356,6 +222,156 @@ async function getImageInfo(file) {
   return promise;
 }
 
+function readConfig() {
+  const getNumber = (id, fallback) => {
+    const el = document.getElementById(id);
+    const value = el ? Number(el.value) : fallback;
+    return Number.isFinite(value) ? value : fallback;
+  };
+
+  return {
+    columnShapeWidth: getNumber("columnShapeWidth", 6500),
+    columnShapeHeight: getNumber("columnShapeHeight", 2600),
+    frameShapeWidth: getNumber("frameShapeWidth", 2000),
+    frameShapeHeight: getNumber("frameShapeHeight", 800),
+    textBoxWidth: getNumber("textBoxWidth", 856),
+    textBoxHeight: getNumber("textBoxHeight", 550),
+    textFontSize: getNumber("textFontSize", 130),
+    frameWidth: getNumber("frameWidth", 12000),
+    imageGap: getNumber("imageGap", 25),
+    groupGap: getNumber("groupGap", 300),
+    innerPadding: getNumber("innerPadding", 120),
+    columnGap: getNumber("columnGap", 13000),
+    headerToFramesGap: getNumber("headerToFramesGap", 4000),
+    sortByColor: !!document.getElementById("sortByColor")?.checked,
+  };
+}
+
+function setStatus(message, tone = "info") {
+  const box = document.getElementById("statusBox");
+  if (!box) return;
+  box.className = `status${tone === "info" ? "" : ` ${tone}`}`;
+  box.textContent = String(message || "");
+}
+
+function updateStats(summary) {
+  document.getElementById("statCategories").textContent = String(summary.categories || 0);
+  document.getElementById("statFrames").textContent = String(summary.frames || 0);
+  document.getElementById("statGroups").textContent = String(summary.groups || 0);
+  document.getElementById("statImages").textContent = String(summary.images || 0);
+}
+
+function resetResults() {
+  document.getElementById("structureResult").innerHTML = "";
+  document.getElementById("layoutResult").innerHTML = "";
+  document.getElementById("layoutNote").textContent = "";
+  updateStats({ categories: 0, frames: 0, groups: 0, images: 0 });
+}
+
+function parseReferenceTree(files) {
+  const categoryMap = new Map();
+  let rootName = "";
+  const skipped = [];
+  let imageCount = 0;
+
+  for (const file of files) {
+    if (!isImageFile(file)) continue;
+
+    const relPath = String(file.webkitRelativePath || file.name || "");
+    const parts = relPath.split("/").filter(Boolean);
+    if (!parts.length) {
+      skipped.push({ fileName: file.name || "image", reason: "empty-relative-path" });
+      continue;
+    }
+
+    if (!rootName) rootName = parts[0];
+    const dirs = parts.slice(1, -1);
+    if (dirs.length < 2) {
+      skipped.push({ fileName: relPath, reason: "path-must-have-category-and-subtype" });
+      continue;
+    }
+
+    const categoryName = dirs[0];
+    const subtypeName = dirs[1];
+    const colorName = dirs.length >= 3 ? dirs.slice(2).join(" / ") : null;
+
+    let category = categoryMap.get(categoryName);
+    if (!category) {
+      category = { name: categoryName, subtypesMap: new Map() };
+      categoryMap.set(categoryName, category);
+    }
+
+    let subtype = category.subtypesMap.get(subtypeName);
+    if (!subtype) {
+      subtype = { name: subtypeName, groupsMap: new Map() };
+      category.subtypesMap.set(subtypeName, subtype);
+    }
+
+    const groupKey = colorName ? colorName : NO_COLOR_KEY;
+    let group = subtype.groupsMap.get(groupKey);
+    if (!group) {
+      group = {
+        key: groupKey,
+        name: colorName,
+        hasColorFolder: !!colorName,
+        images: [],
+      };
+      subtype.groupsMap.set(groupKey, group);
+    }
+
+    group.images.push({
+      file,
+      name: file.name || "image",
+      relativePath: relPath,
+      rootName,
+      categoryName,
+      subtypeName,
+      colorName,
+    });
+    imageCount += 1;
+  }
+
+  const categories = Array.from(categoryMap.values())
+    .map((category) => ({
+      name: category.name,
+      subtypes: Array.from(category.subtypesMap.values())
+        .map((subtype) => ({
+          name: subtype.name,
+          groups: Array.from(subtype.groupsMap.values())
+            .map((group) => ({
+              key: group.key,
+              name: group.name,
+              hasColorFolder: group.hasColorFolder,
+              images: group.images.sort((a, b) => byName(a, b)),
+            }))
+            .sort((a, b) => {
+              if (a.hasColorFolder && !b.hasColorFolder) return -1;
+              if (!a.hasColorFolder && b.hasColorFolder) return 1;
+              return byName(a, b);
+            }),
+        }))
+        .sort(byName),
+    }))
+    .sort(byName);
+
+  const summary = {
+    categories: categories.length,
+    frames: categories.reduce((sum, category) => sum + category.subtypes.length, 0),
+    groups: categories.reduce(
+      (sum, category) => sum + category.subtypes.reduce((inner, subtype) => inner + subtype.groups.length, 0),
+      0
+    ),
+    images: imageCount,
+    skipped,
+  };
+
+  return {
+    rootName,
+    categories,
+    summary,
+  };
+}
+
 function measureWrappedTextLines(text, width, fontSize) {
   const canvas = document.createElement("canvas");
   const ctx = canvas.getContext("2d");
@@ -434,6 +450,7 @@ async function buildLayout(tree, config) {
       images: tree.summary.images,
       totalRows: 0,
       maxFrameHeight: 0,
+      maxColumnHeight: 0,
     },
   };
 
@@ -442,12 +459,12 @@ async function buildLayout(tree, config) {
     const layoutCategory = {
       name: category.name,
       index: categoryIndex,
-      x: categoryIndex * config.columnGap,
       header: {
         width: config.columnShapeWidth,
         height: config.columnShapeHeight,
       },
       frames: [],
+      totalHeight: 0,
     };
 
     for (const subtype of category.subtypes) {
@@ -455,6 +472,7 @@ async function buildLayout(tree, config) {
         name: subtype.name,
         width: config.frameWidth,
         height: 0,
+        relativeTop: 0,
         groups: [],
       };
 
@@ -465,17 +483,12 @@ async function buildLayout(tree, config) {
         const wrappedLines = showText ? measureWrappedTextLines(group.name, config.textBoxWidth, config.textFontSize) : 0;
         const extraLines = Math.max(0, wrappedLines - 1);
         const extraLineHeight = config.textFontSize * 1.35;
-        const textBlockHeight = showText
-          ? config.textBoxHeight + extraLines * extraLineHeight
-          : 0;
+        const textBlockHeight = showText ? config.textBoxHeight + extraLines * extraLineHeight : 0;
 
         const imageTargetHeight = config.textBoxHeight;
         const availableWidth = Math.max(
           1,
-          config.frameWidth
-            - config.innerPadding
-            - config.innerPadding
-            - (showText ? config.textBoxWidth + config.innerPadding : 0)
+          config.frameWidth - config.innerPadding - config.innerPadding - (showText ? config.textBoxWidth + config.innerPadding : 0)
         );
 
         const imagesWithInfo = await Promise.all(
@@ -483,11 +496,38 @@ async function buildLayout(tree, config) {
         );
         const orderedImages = config.sortByColor ? sortGroupImagesByColor(imagesWithInfo) : imagesWithInfo;
         const scaledItems = orderedImages.map((item) => ({
-          ...item,
+          image: item.image,
+          info: item.info,
           scaledWidth: item.info.height > 0 ? item.info.width * (imageTargetHeight / item.info.height) : imageTargetHeight,
         }));
 
         const rows = packRows(scaledItems, availableWidth, config.imageGap);
+        const rowsWithPositions = rows.map((row, rowIndex) => {
+          let cursorX = 0;
+          const items = row.items.map((item, itemIndex) => {
+            const placed = {
+              name: item.image.name,
+              file: item.image.file,
+              width: item.scaledWidth,
+              height: imageTargetHeight,
+              xOffset: cursorX + item.scaledWidth / 2,
+              yOffset: rowIndex * (imageTargetHeight + config.imageGap) + imageTargetHeight / 2,
+              satCode: item.info.satCode,
+              briCode: item.info.briCode,
+              title: item.image.name,
+              index: itemIndex,
+            };
+            cursorX += item.scaledWidth + config.imageGap;
+            return placed;
+          });
+          return {
+            index: rowIndex,
+            width: row.width,
+            count: row.items.length,
+            items,
+          };
+        });
+
         const imageBlockHeight = rows.length
           ? rows.length * imageTargetHeight + Math.max(0, rows.length - 1) * config.imageGap
           : 0;
@@ -501,6 +541,7 @@ async function buildLayout(tree, config) {
           hasColorFolder: group.hasColorFolder,
           imageCount: group.images.length,
           y: currentY,
+          blockHeight,
           text: {
             visible: showText,
             width: showText ? config.textBoxWidth : 0,
@@ -511,33 +552,31 @@ async function buildLayout(tree, config) {
             targetHeight: imageTargetHeight,
             availableWidth,
             blockHeight: imageBlockHeight,
-            rows: rows.map((row, rowIndex) => ({
-              index: rowIndex,
-              width: row.width,
-              count: row.items.length,
-              items: row.items.map((item) => ({
-                name: item.image.name,
-                width: item.scaledWidth,
-                height: imageTargetHeight,
-                satCode: item.info.satCode,
-                briCode: item.info.briCode,
-              })),
-            })),
+            rows: rowsWithPositions,
           },
-          blockHeight,
         });
 
         currentY += blockHeight + config.groupGap;
       }
 
       const hasGroups = layoutFrame.groups.length > 0;
-      layoutFrame.height = hasGroups
-        ? currentY - config.groupGap + config.innerPadding
-        : config.innerPadding * 2 + config.textBoxHeight;
+      layoutFrame.height = hasGroups ? currentY - config.groupGap + config.innerPadding : config.innerPadding * 2 + config.textBoxHeight;
       layout.summary.maxFrameHeight = Math.max(layout.summary.maxFrameHeight, layoutFrame.height);
       layoutCategory.frames.push(layoutFrame);
     }
 
+    let frameTopCursor = config.columnShapeHeight + config.headerToFramesGap;
+    layoutCategory.frames.forEach((frame, frameIndex) => {
+      frame.relativeTop = frameTopCursor;
+      frame.relativeCenterY = frameTopCursor + frame.height / 2;
+      frame.index = frameIndex;
+      frameTopCursor += frame.height + FRAME_VERTICAL_GAP;
+    });
+
+    layoutCategory.totalHeight = layoutCategory.frames.length
+      ? frameTopCursor - FRAME_VERTICAL_GAP
+      : config.columnShapeHeight;
+    layout.summary.maxColumnHeight = Math.max(layout.summary.maxColumnHeight, layoutCategory.totalHeight);
     layout.categories.push(layoutCategory);
   }
 
@@ -601,9 +640,10 @@ function describeLayout(layout) {
   return [
     `Всего рядов картинок: ${layout.summary.totalRows}`,
     `Максимальная высота фрейма: ${formatNumber(layout.summary.maxFrameHeight)}`,
+    `Максимальная высота колонки: ${formatNumber(layout.summary.maxColumnHeight)}`,
     `Ширина фрейма: ${formatNumber(layout.config.frameWidth)}`,
     `Сортировка по цвету: ${layout.config.sortByColor ? "включена" : "выключена"}`,
-    `Эта версия только считает геометрию. Создание превью на доске будет в следующем шаге.`,
+    `Кнопки превью и создания доски уже активны.`,
   ].join("\n");
 }
 
@@ -617,33 +657,46 @@ async function handleFolderSelected(fileList) {
   const label = document.getElementById("folderLabel");
   if (!files.length) {
     if (label) label.textContent = "В выбранной папке не найдено изображений";
-    setStatus("В выбранной папке не нашлось файлов изображений. Проверь структуру и попробуй еще раз.", "warning");
+    setStatus("В выбранной папке не нашлось файлов изображений.", "warning");
     return;
   }
 
   const root = String(files[0].webkitRelativePath || "").split("/").filter(Boolean)[0] || "Выбранная папка";
   if (label) label.textContent = `${root} · ${files.length} файлов`;
-  setStatus(
-    `Папка загружена: ${root}\nИзображений найдено: ${files.length}\nТеперь можно проверить структуру и раскладку.`,
-    "info"
-  );
+  setStatus(`Папка загружена: ${root}\nИзображений найдено: ${files.length}`, "info");
 }
 
-async function handleAnalyzeStructure() {
+async function ensureTree() {
   if (!state.files.length) {
     setStatus("Сначала выбери папку с изображениями.", "warning");
     await notifyWarning("Сначала выбери папку");
-    return;
+    return null;
   }
+  const tree = state.tree || parseReferenceTree(state.files);
+  state.tree = tree;
+  updateStats(tree.summary);
+  document.getElementById("structureResult").innerHTML = renderStructure(tree);
+  return tree;
+}
 
+async function ensureLayout() {
+  const tree = await ensureTree();
+  if (!tree) return null;
+  const layout = await buildLayout(tree, readConfig());
+  state.layout = layout;
+  document.getElementById("layoutResult").innerHTML = renderLayout(layout);
+  document.getElementById("layoutNote").textContent = describeLayout(layout);
+  return layout;
+}
+
+async function handleAnalyzeStructure() {
   try {
-    const tree = parseReferenceTree(state.files);
-    state.tree = tree;
-    state.layout = null;
-    updateStats(tree.summary);
-    document.getElementById("structureResult").innerHTML = renderStructure(tree);
+    const tree = await ensureTree();
+    if (!tree) return;
+
     document.getElementById("layoutResult").innerHTML = "";
     document.getElementById("layoutNote").textContent = "";
+    state.layout = null;
 
     const skippedCount = tree.summary.skipped.length;
     if (!tree.summary.images) {
@@ -659,39 +712,368 @@ async function handleAnalyzeStructure() {
     await notifyInfo("Структура проверена");
   } catch (error) {
     console.error(error);
-    setStatus("Не удалось разобрать структуру папки. Подробности смотри в консоли.", "error");
+    setStatus("Не удалось разобрать структуру папки. Подробности в консоли.", "error");
     await notifyError("Ошибка разбора структуры", error);
   }
 }
 
 async function handleAnalyzeLayout() {
-  if (!state.files.length) {
-    setStatus("Сначала выбери папку с изображениями.", "warning");
-    await notifyWarning("Сначала выбери папку");
-    return;
-  }
-
   try {
-    const tree = state.tree || parseReferenceTree(state.files);
-    state.tree = tree;
-    updateStats(tree.summary);
-    document.getElementById("structureResult").innerHTML = renderStructure(tree);
-    setStatus("Идет расчет раскладки. Для больших наборов картинок это может занять немного времени.", "info");
-
-    const layout = await buildLayout(tree, readConfig());
-    state.layout = layout;
-    document.getElementById("layoutResult").innerHTML = renderLayout(layout);
-    document.getElementById("layoutNote").textContent = describeLayout(layout);
+    setStatus("Идет расчет раскладки…", "info");
+    const layout = await ensureLayout();
+    if (!layout) return;
 
     setStatus(
-      `Раскладка рассчитана.\nВсего рядов: ${layout.summary.totalRows}\nМакс. высота фрейма: ${formatNumber(layout.summary.maxFrameHeight)}\nСледующий шаг: добавить генерацию превью на доске.`,
+      `Раскладка рассчитана.\nВсего рядов: ${layout.summary.totalRows}\nМакс. высота фрейма: ${formatNumber(layout.summary.maxFrameHeight)}\nМожно создавать превью и итоговую доску.`,
       "info"
     );
     await notifyInfo("Раскладка рассчитана");
   } catch (error) {
     console.error(error);
-    setStatus("Не удалось рассчитать раскладку. Подробности смотри в консоли.", "error");
+    setStatus("Не удалось рассчитать раскладку. Подробности в консоли.", "error");
     await notifyError("Ошибка расчета раскладки", error);
+  }
+}
+
+function buildScene(layout, viewport) {
+  const config = layout.config;
+  const centerX = viewport.x + viewport.width / 2;
+  const centerY = viewport.y + viewport.height / 2;
+  const count = layout.categories.length;
+  const firstCenterX = centerX - ((Math.max(0, count - 1) * config.columnGap) / 2);
+  const top = centerY - layout.summary.maxColumnHeight / 2;
+
+  const categories = layout.categories.map((category, categoryIndex) => {
+    const x = firstCenterX + categoryIndex * config.columnGap;
+    const header = {
+      x,
+      y: top + config.columnShapeHeight / 2,
+      width: config.columnShapeWidth,
+      height: config.columnShapeHeight,
+      title: category.name,
+    };
+
+    const frames = category.frames.map((frame) => {
+      const frameLeft = x - frame.width / 2;
+      const frameTop = top + frame.relativeTop;
+      const frameScene = {
+        x,
+        y: frameTop + frame.height / 2,
+        width: frame.width,
+        height: frame.height,
+        top: frameTop,
+        left: frameLeft,
+        name: frame.name,
+        subtitleShape: {
+          x: frameLeft - config.frameShapeWidth / 2,
+          y: frameTop + config.frameShapeHeight / 2,
+          width: config.frameShapeWidth,
+          height: config.frameShapeHeight,
+          title: frame.name,
+        },
+        groups: [],
+      };
+
+      frame.groups.forEach((group) => {
+        const blockTop = frameTop + group.y;
+        const groupScene = {
+          name: group.name,
+          hasColorFolder: group.hasColorFolder,
+          text: null,
+          images: [],
+        };
+
+        const imagesLeft = frameLeft + config.innerPadding + (group.text.visible ? config.textBoxWidth + config.innerPadding : 0);
+
+        if (group.text.visible) {
+          groupScene.text = {
+            x: frameLeft + config.innerPadding + config.textBoxWidth / 2,
+            y: blockTop + group.text.height / 2,
+            width: config.textBoxWidth,
+            height: group.text.height,
+            title: group.name,
+          };
+        }
+
+        group.images.rows.forEach((row) => {
+          row.items.forEach((item) => {
+            groupScene.images.push({
+              file: item.file,
+              title: item.title,
+              x: imagesLeft + item.xOffset,
+              y: blockTop + item.yOffset,
+              width: item.width,
+              height: item.height,
+            });
+          });
+        });
+
+        frameScene.groups.push(groupScene);
+      });
+
+      return frameScene;
+    });
+
+    return { name: category.name, header, frames };
+  });
+
+  return { categories, config };
+}
+
+function makeHeaderContent(title) {
+  return `<p><strong>${escapeHtml(title)}</strong></p>`;
+}
+
+function makeTextBoxContent(title) {
+  return `<p>&nbsp;</p><p>${escapeHtml(title)}</p><p>&nbsp;</p>`;
+}
+
+async function createFrameSafe(params) {
+  try {
+    return await board.createFrame({ ...params, title: "" });
+  } catch (_) {
+    return await board.createFrame(params);
+  }
+}
+
+async function createShapeSafe(params) {
+  return board.createShape(params);
+}
+
+async function createImageWithRetry(params, maxRetries = 2) {
+  let attempt = 0;
+  let lastError = null;
+  while (attempt <= maxRetries) {
+    try {
+      return await board.createImage(params);
+    } catch (error) {
+      lastError = error;
+      attempt += 1;
+      if (attempt > maxRetries) break;
+      await new Promise((resolve) => setTimeout(resolve, 300 * attempt));
+    }
+  }
+  throw lastError;
+}
+
+async function getScaledImageDataUrl(file, width, height) {
+  let perFile = scaledImageCache.get(file);
+  if (!perFile) {
+    perFile = new Map();
+    scaledImageCache.set(file, perFile);
+  }
+
+  const key = `${Math.round(width)}x${Math.round(height)}`;
+  if (perFile.has(key)) return perFile.get(key);
+
+  const promise = (async () => {
+    const image = await decodeImageFromFile(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(width));
+    canvas.height = Math.max(1, Math.round(height));
+    const ctx = canvas.getContext("2d");
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    const mimeType = String(file.type || "").toLowerCase().includes("png") ? "image/png" : "image/jpeg";
+    const dataUrl = mimeType === "image/png" ? canvas.toDataURL(mimeType) : canvas.toDataURL(mimeType, 0.9);
+    try {
+      image.src = "";
+    } catch (_) {}
+    return dataUrl;
+  })();
+
+  perFile.set(key, promise);
+  return promise;
+}
+
+async function renderScene(scene, mode) {
+  const config = scene.config;
+  const created = [];
+  let createdImages = 0;
+  let createdFrames = 0;
+  let createdShapes = 0;
+  let createdTextBoxes = 0;
+
+  for (const category of scene.categories) {
+    const headerWidget = await createShapeSafe({
+      shape: "round_rectangle",
+      x: category.header.x,
+      y: category.header.y,
+      width: category.header.width,
+      height: category.header.height,
+      content: makeHeaderContent(category.header.title),
+      style: {
+        fillColor: COLUMN_HEADER_FILL,
+        borderColor: OUTLINE_COLOR,
+        borderWidth: 4,
+        color: "#111111",
+        fontSize: 180,
+        textAlign: "center",
+        textAlignVertical: "middle",
+      },
+    });
+    created.push(headerWidget);
+    createdShapes += 1;
+
+    for (const frame of category.frames) {
+      const frameWidget = await createFrameSafe({
+        x: frame.x,
+        y: frame.y,
+        width: frame.width,
+        height: frame.height,
+        title: frame.name,
+      });
+      created.push(frameWidget);
+      createdFrames += 1;
+
+      const subtypeWidget = await createShapeSafe({
+        shape: "round_rectangle",
+        x: frame.subtitleShape.x,
+        y: frame.subtitleShape.y,
+        width: frame.subtitleShape.width,
+        height: frame.subtitleShape.height,
+        content: makeHeaderContent(frame.subtitleShape.title),
+        style: {
+          fillColor: SUBTYPE_HEADER_FILL,
+          borderColor: OUTLINE_COLOR,
+          borderWidth: 3,
+          color: "#111111",
+          fontSize: 90,
+          textAlign: "center",
+          textAlignVertical: "middle",
+        },
+      });
+      created.push(subtypeWidget);
+      createdShapes += 1;
+
+      for (const group of frame.groups) {
+        if (group.text) {
+          const textWidget = await createShapeSafe({
+            shape: "rectangle",
+            x: group.text.x,
+            y: group.text.y,
+            width: group.text.width,
+            height: group.text.height,
+            content: makeTextBoxContent(group.text.title),
+            style: {
+              fillColor: TEXT_BOX_FILL,
+              borderColor: TEXT_BOX_BORDER,
+              borderWidth: 1,
+              color: "#111111",
+              fontSize: config.textFontSize,
+              textAlign: "center",
+              textAlignVertical: "middle",
+            },
+          });
+          created.push(textWidget);
+          createdTextBoxes += 1;
+        }
+
+        for (const image of group.images) {
+          if (mode === "preview") {
+            const placeholder = await createShapeSafe({
+              shape: "rectangle",
+              x: image.x,
+              y: image.y,
+              width: image.width,
+              height: image.height,
+              content: "<p>&nbsp;</p>",
+              style: {
+                fillColor: PREVIEW_FILL,
+                borderColor: PREVIEW_BORDER,
+                borderWidth: 1,
+                color: "#111111",
+              },
+            });
+            created.push(placeholder);
+            createdShapes += 1;
+          } else {
+            const dataUrl = await getScaledImageDataUrl(image.file, image.width, image.height);
+            const imageWidget = await createImageWithRetry({
+              url: dataUrl,
+              x: image.x,
+              y: image.y,
+              width: image.width,
+              height: image.height,
+              title: image.title,
+            });
+            try {
+              await imageWidget.setMetadata(APP_META_ID, {
+                sourceFileName: image.file.name || image.title,
+                app: APP_VERSION,
+              });
+            } catch (_) {}
+            created.push(imageWidget);
+            createdImages += 1;
+          }
+        }
+      }
+    }
+  }
+
+  return {
+    widgets: created,
+    stats: {
+      images: createdImages,
+      frames: createdFrames,
+      shapes: createdShapes,
+      textBoxes: createdTextBoxes,
+    },
+  };
+}
+
+function setBuilderButtonsDisabled(isDisabled) {
+  const buttonIds = ["folderButton", "analyzeButton", "layoutButton", "previewButton", "buildButton"];
+  buttonIds.forEach((id) => {
+    const element = document.getElementById(id);
+    if (element) element.disabled = isDisabled;
+  });
+}
+
+async function handleCreate(mode) {
+  if (state.isRendering) return;
+  state.isRendering = true;
+  setBuilderButtonsDisabled(true);
+
+  try {
+    setStatus(mode === "preview" ? "Создание превью на доске…" : "Создание доски…", "info");
+    const layout = state.layout || await ensureLayout();
+    if (!layout) return;
+
+    const viewport = await board.viewport.get();
+    const scene = buildScene(layout, viewport);
+    const result = await renderScene(scene, mode);
+
+    if (result.widgets.length) {
+      try {
+        await board.viewport.zoomTo(result.widgets);
+      } catch (error) {
+        console.warn("zoomTo failed", error);
+      }
+    }
+
+    if (mode === "preview") {
+      setStatus(
+        `Превью создано.\nФреймов: ${result.stats.frames}\nФигур: ${result.stats.shapes}\nТекстовых блоков: ${result.stats.textBoxes}`,
+        "info"
+      );
+      await notifyInfo("Превью создано");
+    } else {
+      setStatus(
+        `Доска создана.\nФреймов: ${result.stats.frames}\nКартинок: ${result.stats.images}\nФигур: ${result.stats.shapes}`,
+        "info"
+      );
+      await notifyInfo("Доска создана");
+    }
+  } catch (error) {
+    console.error(error);
+    setStatus(mode === "preview" ? "Не удалось создать превью. Подробности в консоли." : "Не удалось создать доску. Подробности в консоли.", "error");
+    await notifyError(mode === "preview" ? "Ошибка создания превью" : "Ошибка создания доски", error);
+  } finally {
+    state.isRendering = false;
+    setBuilderButtonsDisabled(false);
   }
 }
 
@@ -717,6 +1099,7 @@ function initTabs() {
 
 window.addEventListener("DOMContentLoaded", () => {
   resetResults();
+  setStatus("");
   initTabs();
 
   const folderButton = document.getElementById("folderButton");
@@ -733,9 +1116,9 @@ window.addEventListener("DOMContentLoaded", () => {
   analyzeButton?.addEventListener("click", handleAnalyzeStructure);
   layoutButton?.addEventListener("click", handleAnalyzeLayout);
   previewButton?.addEventListener("click", async () => {
-    await notifyInfo("Превью на доске будет добавлено в следующей версии");
+    await handleCreate("preview");
   });
   buildButton?.addEventListener("click", async () => {
-    await notifyInfo("Создание доски будет добавлено в следующей версии");
+    await handleCreate("build");
   });
 });
