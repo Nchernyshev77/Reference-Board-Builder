@@ -13,7 +13,7 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
-const APP_VERSION = "Reference Board Builder_6";
+const APP_VERSION = "Reference Board Builder_8";
 const APP_META_ID = "reference-board-builder";
 const FRAME_VERTICAL_GAP = 1200;
 const COLUMN_HEADER_FILL = "#f4d44d";
@@ -27,6 +27,7 @@ const FRAME_FILL = "#808080";
 const COLUMN_HEADER_BORDER_WIDTH = 24;
 const COLUMN_HEADER_FONT_SIZE = 700;
 const SUBTYPE_HEADER_FONT_SIZE = 200;
+const IMAGE_CREATE_CONCURRENCY = 3;
 
 const state = {
   files: [],
@@ -913,6 +914,20 @@ async function createImageWithRetry(params, maxRetries = 2) {
   throw lastError;
 }
 
+async function runWithConcurrency(items, limit, worker) {
+  const safeLimit = Math.max(1, Number(limit) || 1);
+  let cursor = 0;
+  const runners = new Array(Math.min(safeLimit, items.length || 1)).fill(0).map(async () => {
+    while (true) {
+      const index = cursor;
+      cursor += 1;
+      if (index >= items.length) break;
+      await worker(items[index], index);
+    }
+  });
+  await Promise.all(runners);
+}
+
 async function getScaledImageDataUrl(file, width, height) {
   let perFile = scaledImageCache.get(file);
   if (!perFile) {
@@ -1008,10 +1023,13 @@ async function renderScene(scene, mode) {
       created.push(subtypeWidget);
       createdShapes += 1;
 
+      const frameContentJobs = [];
+
       for (const group of frame.groups) {
         if (group.text) {
           const textWidget = await createShapeSafe({
             shape: "rectangle",
+            parentId: frameWidget.id,
             x: group.text.x,
             y: group.text.y,
             width: group.text.width,
@@ -1032,26 +1050,31 @@ async function renderScene(scene, mode) {
         }
 
         for (const image of group.images) {
-          if (mode === "preview") {
-            const placeholder = await createShapeSafe({
-              shape: "rectangle",
-              x: image.x,
-              y: image.y,
-              width: image.width,
-              height: image.height,
-              content: "<p>&nbsp;</p>",
-              style: {
-                fillColor: PREVIEW_FILL,
-                borderColor: PREVIEW_BORDER,
-                borderWidth: 1,
-                color: "#111111",
-              },
-            });
-            created.push(placeholder);
-            createdShapes += 1;
-          } else {
+          frameContentJobs.push(async () => {
+            if (mode === "preview") {
+              const placeholder = await createShapeSafe({
+                shape: "rectangle",
+                parentId: frameWidget.id,
+                x: image.x,
+                y: image.y,
+                width: image.width,
+                height: image.height,
+                content: "<p>&nbsp;</p>",
+                style: {
+                  fillColor: PREVIEW_FILL,
+                  borderColor: PREVIEW_BORDER,
+                  borderWidth: 1,
+                  color: "#111111",
+                },
+              });
+              created.push(placeholder);
+              createdShapes += 1;
+              return;
+            }
+
             const dataUrl = await getScaledImageDataUrl(image.file, image.width, image.height);
             const imageWidget = await createImageWithRetry({
+              parentId: frameWidget.id,
               url: dataUrl,
               x: image.x,
               y: image.y,
@@ -1067,9 +1090,13 @@ async function renderScene(scene, mode) {
             } catch (_) {}
             created.push(imageWidget);
             createdImages += 1;
-          }
+          });
         }
       }
+
+      await runWithConcurrency(frameContentJobs, IMAGE_CREATE_CONCURRENCY, async (job) => {
+        await job();
+      });
     }
   }
 
