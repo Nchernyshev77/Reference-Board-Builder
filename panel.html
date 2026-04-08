@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reference Board Builder_1</title>
+  <title>Reference Board Builder_2</title>
   <script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
   <script src="app.js" defer></script>
   <style>
@@ -12,15 +12,24 @@
       color-scheme: light;
     }
 
+    html,
+    body {
+      height: 100%;
+    }
+
     * {
       box-sizing: border-box;
     }
 
     body {
-      margin: 16px;
+      margin: 0;
+      padding: 16px;
       font-size: 14px;
       color: #111827;
       background: #f9fafb;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
     }
 
     .app-header {
@@ -43,6 +52,11 @@
       display: flex;
       gap: 4px;
       margin-bottom: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #f9fafb;
+      padding-bottom: 8px;
     }
 
     .tab-btn {
@@ -92,6 +106,23 @@
       color: #111827;
     }
 
+    .param-group {
+      margin-bottom: 12px;
+    }
+
+    .param-group:last-of-type {
+      margin-bottom: 0;
+    }
+
+    .param-group-title {
+      margin: 0 0 6px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+    }
+
     .field {
       display: flex;
       flex-direction: column;
@@ -101,20 +132,23 @@
 
     .field-row-two,
     .field-row-three {
-      display: flex;
+      flex-direction: row;
       gap: 8px;
+      align-items: flex-end;
+      flex-wrap: nowrap;
     }
 
     .field-row-two .subfield,
     .field-row-three .subfield {
       flex: 1;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       gap: 4px;
     }
 
     label {
-      font-size: 13px;
+      font-size: 12px;
       opacity: 0.92;
     }
 
@@ -216,9 +250,11 @@
     }
 
     .file-picker-label,
-    .muted {
+    .muted,
+    .check-list {
       font-size: 12px;
       color: #6b7280;
+      line-height: 1.5;
     }
 
     #folderInput {
@@ -273,7 +309,7 @@
 
     .result-box {
       width: 100%;
-      min-height: 220px;
+      min-height: 160px;
       padding: 10px;
       border: 1px solid rgba(15, 23, 42, 0.12);
       border-radius: 10px;
@@ -330,7 +366,7 @@
 </head>
 <body>
   <div class="app-header">
-    <h1 class="app-title">Reference Board Builder_1</h1>
+    <h1 class="app-title">Reference Board Builder_2</h1>
     <p class="app-subtitle">Этап A/B: чтение папок, анализ структуры и расчет раскладки.</p>
   </div>
 
@@ -355,70 +391,85 @@
     <div class="card">
       <div class="section-title">Параметры раскладки</div>
 
-      <div class="field field-row-two">
-        <div class="subfield">
-          <label for="columnShapeWidth">Большой shape: ширина</label>
-          <input id="columnShapeWidth" type="number" step="1" value="6500" />
-        </div>
-        <div class="subfield">
-          <label for="columnShapeHeight">Большой shape: высота</label>
-          <input id="columnShapeHeight" type="number" step="1" value="2600" />
-        </div>
-      </div>
-
-      <div class="field field-row-two">
-        <div class="subfield">
-          <label for="frameShapeWidth">Малый shape: ширина</label>
-          <input id="frameShapeWidth" type="number" step="1" value="2000" />
-        </div>
-        <div class="subfield">
-          <label for="frameShapeHeight">Малый shape: высота</label>
-          <input id="frameShapeHeight" type="number" step="1" value="800" />
+      <div class="param-group">
+        <div class="param-group-title">Большой shape</div>
+        <div class="field field-row-two">
+          <div class="subfield">
+            <label for="columnShapeWidth">Ширина</label>
+            <input id="columnShapeWidth" type="number" step="1" value="6500" />
+          </div>
+          <div class="subfield">
+            <label for="columnShapeHeight">Высота</label>
+            <input id="columnShapeHeight" type="number" step="1" value="2600" />
+          </div>
         </div>
       </div>
 
-      <div class="field field-row-three">
-        <div class="subfield">
-          <label for="textBoxWidth">Окно текста: ширина</label>
-          <input id="textBoxWidth" type="number" step="1" value="856" />
-        </div>
-        <div class="subfield">
-          <label for="textBoxHeight">Окно текста: высота</label>
-          <input id="textBoxHeight" type="number" step="1" value="550" />
-        </div>
-        <div class="subfield">
-          <label for="textFontSize">Размер текста</label>
-          <input id="textFontSize" type="number" step="1" value="130" />
-        </div>
-      </div>
-
-      <div class="field field-row-three">
-        <div class="subfield">
-          <label for="frameWidth">Ширина фрейма</label>
-          <input id="frameWidth" type="number" step="1" value="12000" />
-        </div>
-        <div class="subfield">
-          <label for="imageGap">Отступ между картинками и рядами</label>
-          <input id="imageGap" type="number" step="1" value="25" />
-        </div>
-        <div class="subfield">
-          <label for="groupGap">Отступ между группами</label>
-          <input id="groupGap" type="number" step="1" value="300" />
+      <div class="param-group">
+        <div class="param-group-title">Малый shape</div>
+        <div class="field field-row-two">
+          <div class="subfield">
+            <label for="frameShapeWidth">Ширина</label>
+            <input id="frameShapeWidth" type="number" step="1" value="2000" />
+          </div>
+          <div class="subfield">
+            <label for="frameShapeHeight">Высота</label>
+            <input id="frameShapeHeight" type="number" step="1" value="800" />
+          </div>
         </div>
       </div>
 
-      <div class="field field-row-three">
-        <div class="subfield">
-          <label for="innerPadding">Внутренний отступ</label>
-          <input id="innerPadding" type="number" step="1" value="120" />
+      <div class="param-group">
+        <div class="param-group-title">Окно текста</div>
+        <div class="field field-row-three">
+          <div class="subfield">
+            <label for="textBoxWidth">Ширина</label>
+            <input id="textBoxWidth" type="number" step="1" value="856" />
+          </div>
+          <div class="subfield">
+            <label for="textBoxHeight">Высота</label>
+            <input id="textBoxHeight" type="number" step="1" value="550" />
+          </div>
+          <div class="subfield">
+            <label for="textFontSize">Размер текста</label>
+            <input id="textFontSize" type="number" step="1" value="130" />
+          </div>
         </div>
-        <div class="subfield">
-          <label for="columnGap">Расстояние между колонками</label>
-          <input id="columnGap" type="number" step="1" value="13000" />
+      </div>
+
+      <div class="param-group">
+        <div class="param-group-title">Фрейм и ряды</div>
+        <div class="field field-row-three">
+          <div class="subfield">
+            <label for="frameWidth">Ширина фрейма</label>
+            <input id="frameWidth" type="number" step="1" value="12000" />
+          </div>
+          <div class="subfield">
+            <label for="imageGap">Отступ картинок</label>
+            <input id="imageGap" type="number" step="1" value="25" />
+          </div>
+          <div class="subfield">
+            <label for="groupGap">Отступ групп</label>
+            <input id="groupGap" type="number" step="1" value="300" />
+          </div>
         </div>
-        <div class="subfield">
-          <label for="headerToFramesGap">Отступ от большого shape до фреймов</label>
-          <input id="headerToFramesGap" type="number" step="1" value="4000" />
+      </div>
+
+      <div class="param-group">
+        <div class="param-group-title">Общие отступы</div>
+        <div class="field field-row-three">
+          <div class="subfield">
+            <label for="innerPadding">Внутренний отступ</label>
+            <input id="innerPadding" type="number" step="1" value="120" />
+          </div>
+          <div class="subfield">
+            <label for="columnGap">Расст. между колонками</label>
+            <input id="columnGap" type="number" step="1" value="13000" />
+          </div>
+          <div class="subfield">
+            <label for="headerToFramesGap">Отступ до фреймов</label>
+            <input id="headerToFramesGap" type="number" step="1" value="4000" />
+          </div>
         </div>
       </div>
 
@@ -465,6 +516,15 @@
           <div class="stat-label">Картинки</div>
           <div class="stat-value" id="statImages">0</div>
         </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Что проверять</div>
+      <div class="check-list">
+        <div><strong>Структура</strong> — категории, подтипы, цветовые группы и количество картинок.</div>
+        <div><strong>Раскладка</strong> — число рядов, ширина зоны картинок, высота блоков и итоговая высота фреймов.</div>
+        <div><strong>Сводка</strong> — общее количество категорий, фреймов, групп и картинок.</div>
       </div>
     </div>
 
