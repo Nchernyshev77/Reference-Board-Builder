@@ -28,6 +28,8 @@ const COLUMN_HEADER_BORDER_WIDTH = 24;
 const COLUMN_HEADER_FONT_SIZE = 700;
 const SUBTYPE_HEADER_FONT_SIZE = 200;
 const IMAGE_CREATE_CONCURRENCY = 3;
+const FRAME_ATTACH_STAGE_OFFSET_X = 1600;
+const FRAME_ATTACH_NUDGE = 2;
 
 const state = {
   files: [],
@@ -960,6 +962,33 @@ async function getScaledImageDataUrl(file, width, height) {
   return promise;
 }
 
+
+function getFrameAttachStagingPoint(frame, finalX, finalY, itemIndex = 0) {
+  const lane = itemIndex % 6;
+  return {
+    x: frame.left + frame.width + FRAME_ATTACH_STAGE_OFFSET_X + lane * 120,
+    y: finalY,
+  };
+}
+
+async function moveWidgetIntoFrame(widget, finalX, finalY) {
+  if (!widget || typeof widget.sync !== "function") return;
+  try {
+    widget.x = finalX + FRAME_ATTACH_NUDGE;
+    widget.y = finalY;
+    await widget.sync();
+    widget.x = finalX;
+    widget.y = finalY;
+    await widget.sync();
+  } catch (_) {
+    try {
+      widget.x = finalX;
+      widget.y = finalY;
+      await widget.sync();
+    } catch (_) {}
+  }
+}
+
 async function renderScene(scene, mode) {
   const config = scene.config;
   const created = [];
@@ -1027,11 +1056,14 @@ async function renderScene(scene, mode) {
 
       for (const group of frame.groups) {
         if (group.text) {
+          const stagedTextPoint = mode === "build"
+            ? getFrameAttachStagingPoint(frame, group.text.x, group.text.y, createdTextBoxes)
+            : { x: group.text.x, y: group.text.y };
+
           const textWidget = await createShapeSafe({
             shape: "rectangle",
-            parentId: frameWidget.id,
-            x: group.text.x,
-            y: group.text.y,
+            x: stagedTextPoint.x,
+            y: stagedTextPoint.y,
             width: group.text.width,
             height: group.text.height,
             content: makeTextBoxContent(group.text.title),
@@ -1045,6 +1077,11 @@ async function renderScene(scene, mode) {
               textAlignVertical: "middle",
             },
           });
+
+          if (mode === "build") {
+            await moveWidgetIntoFrame(textWidget, group.text.x, group.text.y);
+          }
+
           created.push(textWidget);
           createdTextBoxes += 1;
         }
@@ -1054,7 +1091,6 @@ async function renderScene(scene, mode) {
             if (mode === "preview") {
               const placeholder = await createShapeSafe({
                 shape: "rectangle",
-                parentId: frameWidget.id,
                 x: image.x,
                 y: image.y,
                 width: image.width,
@@ -1073,15 +1109,19 @@ async function renderScene(scene, mode) {
             }
 
             const dataUrl = await getScaledImageDataUrl(image.file, image.width, image.height);
+            const stagedImagePoint = getFrameAttachStagingPoint(frame, image.x, image.y, createdImages);
+
             const imageWidget = await createImageWithRetry({
-              parentId: frameWidget.id,
               url: dataUrl,
-              x: image.x,
-              y: image.y,
+              x: stagedImagePoint.x,
+              y: stagedImagePoint.y,
               width: image.width,
               height: image.height,
               title: image.title,
             });
+
+            await moveWidgetIntoFrame(imageWidget, image.x, image.y);
+
             try {
               await imageWidget.setMetadata(APP_META_ID, {
                 sourceFileName: image.file.name || image.title,
