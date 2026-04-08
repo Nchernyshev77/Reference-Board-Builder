@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Reference Board Builder_1</title>
+  <script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
+  <script src="app.js" defer></script>
+  <style>
+    :root {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color-scheme: light;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 16px;
+      font-size: 14px;
+      color: #111827;
+      background: #f9fafb;
+    }
+
+    .app-header {
+      margin-bottom: 12px;
+    }
+
+    .app-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin: 0;
+    }
+
+    .app-subtitle {
+      margin: 4px 0 0;
+      font-size: 12px;
+      color: #4b5563;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 6px 8px;
+      font-size: 13px;
+      border-radius: 999px;
+      border: 1px solid rgba(15, 23, 42, 0.15);
+      background: #e5e7eb;
+      cursor: pointer;
+      color: #000;
+      transition: background 0.15s ease, color 0.15s ease, transform 0.05s ease;
+    }
+
+    .tab-btn.active {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #2563eb;
+    }
+
+    .tab-btn:active {
+      transform: translateY(1px);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+
+    .section-title {
+      font-weight: 600;
+      margin-top: 0;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: #111827;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 10px;
+    }
+
+    .field-row-two,
+    .field-row-three {
+      display: flex;
+      gap: 8px;
+    }
+
+    .field-row-two .subfield,
+    .field-row-three .subfield {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    label {
+      font-size: 13px;
+      opacity: 0.92;
+    }
+
+    input[type="number"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 6px 8px;
+      border-radius: 7px;
+      border: 1px solid rgba(15, 23, 42, 0.16);
+      font-size: 13px;
+      background: #ffffff;
+      color: #0f172a;
+    }
+
+    input[type="number"]:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+    }
+
+    input[type="checkbox"] {
+      accent-color: #2563eb;
+      width: 14px;
+      height: 14px;
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button.primary,
+    button.secondary,
+    button.ghost {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 9px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s ease, transform 0.05s ease, opacity 0.15s ease;
+    }
+
+    button.primary {
+      border: none;
+      background: #2563eb;
+      color: #ffffff;
+    }
+
+    button.secondary {
+      border: 1px solid rgba(15, 23, 42, 0.16);
+      background: #ffffff;
+      color: #111827;
+    }
+
+    button.ghost {
+      border: 1px dashed rgba(15, 23, 42, 0.18);
+      background: #f8fafc;
+      color: #475569;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(1px);
+    }
+
+    .file-picker {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .file-picker-button {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid #111827;
+      background: #ffffff;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      color: #000;
+    }
+
+    .file-picker-label,
+    .muted {
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    #folderInput {
+      display: none;
+    }
+
+    .status {
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 12px;
+      margin-bottom: 12px;
+      white-space: pre-line;
+    }
+
+    .status.warning {
+      background: #fff7ed;
+      color: #c2410c;
+    }
+
+    .status.error {
+      background: #fef2f2;
+      color: #b91c1c;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .stat-card {
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      border-radius: 10px;
+      background: #ffffff;
+      padding: 10px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: #6b7280;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .result-box {
+      width: 100%;
+      min-height: 220px;
+      padding: 10px;
+      border: 1px solid rgba(15, 23, 42, 0.12);
+      border-radius: 10px;
+      background: #ffffff;
+      overflow: auto;
+    }
+
+    .tree,
+    .layout-tree {
+      font-size: 12px;
+      line-height: 1.55;
+      color: #111827;
+    }
+
+    .tree details,
+    .layout-tree details {
+      border-left: 2px solid rgba(37, 99, 235, 0.12);
+      margin-left: 6px;
+      padding-left: 8px;
+    }
+
+    .tree summary,
+    .layout-tree summary {
+      cursor: pointer;
+      font-weight: 600;
+      margin: 4px 0;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #e5e7eb;
+      color: #111827;
+      font-size: 11px;
+      margin-left: 6px;
+      vertical-align: middle;
+    }
+
+    .layout-note {
+      font-size: 12px;
+      color: #475569;
+      margin-top: 8px;
+      white-space: pre-line;
+    }
+
+    .footer-note {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-header">
+    <h1 class="app-title">Reference Board Builder_1</h1>
+    <p class="app-subtitle">Этап A/B: чтение папок, анализ структуры и расчет раскладки.</p>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="builder">Builder</button>
+    <button class="tab-btn" data-tab="results">Results</button>
+  </div>
+
+  <div id="tab-builder" class="tab-content active">
+    <div class="card">
+      <div class="section-title">Папка с референсами</div>
+      <div class="field">
+        <div class="file-picker">
+          <button type="button" id="folderButton" class="file-picker-button">Выбрать папку</button>
+          <span id="folderLabel" class="file-picker-label">Папка не выбрана</span>
+          <input id="folderInput" type="file" webkitdirectory directory multiple accept="image/*" />
+        </div>
+      </div>
+      <div id="statusBox" class="status">Сначала выбери корневую папку. После этого можно проверить структуру и раскладку.</div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Параметры раскладки</div>
+
+      <div class="field field-row-two">
+        <div class="subfield">
+          <label for="columnShapeWidth">Большой shape: ширина</label>
+          <input id="columnShapeWidth" type="number" step="1" value="6500" />
+        </div>
+        <div class="subfield">
+          <label for="columnShapeHeight">Большой shape: высота</label>
+          <input id="columnShapeHeight" type="number" step="1" value="2600" />
+        </div>
+      </div>
+
+      <div class="field field-row-two">
+        <div class="subfield">
+          <label for="frameShapeWidth">Малый shape: ширина</label>
+          <input id="frameShapeWidth" type="number" step="1" value="2000" />
+        </div>
+        <div class="subfield">
+          <label for="frameShapeHeight">Малый shape: высота</label>
+          <input id="frameShapeHeight" type="number" step="1" value="800" />
+        </div>
+      </div>
+
+      <div class="field field-row-three">
+        <div class="subfield">
+          <label for="textBoxWidth">Окно текста: ширина</label>
+          <input id="textBoxWidth" type="number" step="1" value="856" />
+        </div>
+        <div class="subfield">
+          <label for="textBoxHeight">Окно текста: высота</label>
+          <input id="textBoxHeight" type="number" step="1" value="550" />
+        </div>
+        <div class="subfield">
+          <label for="textFontSize">Размер текста</label>
+          <input id="textFontSize" type="number" step="1" value="130" />
+        </div>
+      </div>
+
+      <div class="field field-row-three">
+        <div class="subfield">
+          <label for="frameWidth">Ширина фрейма</label>
+          <input id="frameWidth" type="number" step="1" value="12000" />
+        </div>
+        <div class="subfield">
+          <label for="imageGap">Отступ между картинками и рядами</label>
+          <input id="imageGap" type="number" step="1" value="25" />
+        </div>
+        <div class="subfield">
+          <label for="groupGap">Отступ между группами</label>
+          <input id="groupGap" type="number" step="1" value="300" />
+        </div>
+      </div>
+
+      <div class="field field-row-three">
+        <div class="subfield">
+          <label for="innerPadding">Внутренний отступ</label>
+          <input id="innerPadding" type="number" step="1" value="120" />
+        </div>
+        <div class="subfield">
+          <label for="columnGap">Расстояние между колонками</label>
+          <input id="columnGap" type="number" step="1" value="13000" />
+        </div>
+        <div class="subfield">
+          <label for="headerToFramesGap">Отступ от большого shape до фреймов</label>
+          <input id="headerToFramesGap" type="number" step="1" value="4000" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="checkbox-row">
+          <input id="sortByColor" type="checkbox" checked />
+          Применять сортировку по цвету
+        </label>
+      </div>
+
+      <div class="button-row">
+        <button type="button" id="analyzeButton" class="secondary">Проверить структуру</button>
+        <button type="button" id="layoutButton" class="primary">Проверить раскладку</button>
+      </div>
+
+      <div class="button-row">
+        <button type="button" id="previewButton" class="ghost" disabled>Создать превью на доске</button>
+        <button type="button" id="buildButton" class="ghost" disabled>Создать на доске</button>
+      </div>
+
+      <div class="footer-note">
+        В этой версии активны этапы A и B. Этапы C и D подготовлены в интерфейсе, но еще не включены.
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-results" class="tab-content">
+    <div class="card">
+      <div class="section-title">Сводка</div>
+      <div id="statsGrid" class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">Категории</div>
+          <div class="stat-value" id="statCategories">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Фреймы</div>
+          <div class="stat-value" id="statFrames">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Группы</div>
+          <div class="stat-value" id="statGroups">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Картинки</div>
+          <div class="stat-value" id="statImages">0</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Структура</div>
+      <div id="structureResult" class="result-box tree"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">Раскладка</div>
+      <div id="layoutResult" class="result-box layout-tree"></div>
+      <div id="layoutNote" class="layout-note"></div>
+    </div>
+  </div>
+</body>
+</html>
