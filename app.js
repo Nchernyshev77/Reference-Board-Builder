@@ -1,4 +1,4 @@
-// Reference Board Builder_4
+// Reference Board Builder_5
 // Stages A-D:
 // - read folder tree
 // - analyze structure
@@ -13,7 +13,7 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
-const APP_VERSION = "Reference Board Builder_4";
+const APP_VERSION = "Reference Board Builder_5";
 const APP_META_ID = "reference-board-builder";
 const FRAME_VERTICAL_GAP = 1200;
 const COLUMN_HEADER_FILL = "#f4d44d";
@@ -23,6 +23,11 @@ const TEXT_BOX_FILL = "#ffffff";
 const TEXT_BOX_BORDER = "#cbd5e1";
 const PREVIEW_FILL = "#d1d5db";
 const PREVIEW_BORDER = "#9ca3af";
+const FRAME_FILL = "#808080";
+const COLUMN_HEADER_BORDER_WIDTH = 24;
+const COLUMN_HEADER_FONT_SIZE = 420;
+const COLUMN_HEADER_BORDER_RADIUS = 200;
+const SUBTYPE_HEADER_FONT_SIZE = 200;
 
 const state = {
   files: [],
@@ -829,11 +834,33 @@ function makeTextBoxContent(title) {
 }
 
 async function createFrameSafe(params) {
+  const baseParams = {
+    ...params,
+    title: "",
+    style: {
+      ...(params.style || {}),
+      fillColor: (params.style && params.style.fillColor) || FRAME_FILL,
+    },
+  };
+
+  let frameWidget;
   try {
-    return await board.createFrame({ ...params, title: "" });
+    frameWidget = await board.createFrame(baseParams);
   } catch (_) {
-    return await board.createFrame(params);
+    frameWidget = await board.createFrame({ ...params, title: "" });
   }
+
+  try {
+    if ("title" in frameWidget) frameWidget.title = "";
+    if (frameWidget.style && typeof frameWidget.style === "object") {
+      frameWidget.style.fillColor = (baseParams.style && baseParams.style.fillColor) || FRAME_FILL;
+    }
+    if (typeof frameWidget.sync === "function") {
+      await frameWidget.sync();
+    }
+  } catch (_) {}
+
+  return frameWidget;
 }
 
 async function createShapeSafe(params) {
@@ -907,9 +934,10 @@ async function renderScene(scene, mode) {
       style: {
         fillColor: COLUMN_HEADER_FILL,
         borderColor: OUTLINE_COLOR,
-        borderWidth: 4,
+        borderWidth: COLUMN_HEADER_BORDER_WIDTH,
+        borderRadius: COLUMN_HEADER_BORDER_RADIUS,
         color: "#111111",
-        fontSize: 180,
+        fontSize: COLUMN_HEADER_FONT_SIZE,
         textAlign: "center",
         textAlignVertical: "middle",
       },
@@ -923,13 +951,16 @@ async function renderScene(scene, mode) {
         y: frame.y,
         width: frame.width,
         height: frame.height,
-        title: frame.name,
+        title: "",
+        style: {
+          fillColor: FRAME_FILL,
+        },
       });
       created.push(frameWidget);
       createdFrames += 1;
 
       const subtypeWidget = await createShapeSafe({
-        shape: "round_rectangle",
+        shape: "rectangle",
         x: frame.subtitleShape.x,
         y: frame.subtitleShape.y,
         width: frame.subtitleShape.width,
@@ -940,7 +971,7 @@ async function renderScene(scene, mode) {
           borderColor: OUTLINE_COLOR,
           borderWidth: 3,
           color: "#111111",
-          fontSize: 90,
+          fontSize: SUBTYPE_HEADER_FONT_SIZE,
           textAlign: "center",
           textAlignVertical: "middle",
         },

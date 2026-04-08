@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reference Board Builder_4</title>
+  <title>Reference Board Builder_5</title>
   <script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
   <script src="app.js" defer></script>
   <style>
@@ -35,42 +35,6 @@
       line-height: 1.2;
     }
 
-    .tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 8px;
-    }
-
-    .tab-btn {
-      flex: 1;
-      padding: 5px 8px;
-      font-size: 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(15, 23, 42, 0.15);
-      background: #e5e7eb;
-      cursor: pointer;
-      color: #000;
-      transition: background 0.15s ease, color 0.15s ease, transform 0.05s ease;
-    }
-
-    .tab-btn.active {
-      background: #2563eb;
-      color: #ffffff;
-      border-color: #2563eb;
-    }
-
-    .tab-btn:active {
-      transform: translateY(1px);
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: block;
-    }
-
     .card {
       background: #ffffff;
       border: 1px solid rgba(15, 23, 42, 0.08);
@@ -82,8 +46,7 @@
 
     .section-title {
       font-weight: 600;
-      margin-top: 0;
-      margin-bottom: 6px;
+      margin: 0 0 6px;
       font-size: 12px;
       color: #111827;
     }
@@ -135,9 +98,7 @@
       line-height: 1.2;
     }
 
-    input[type="number"],
-    select,
-    textarea {
+    input[type="number"] {
       width: 100%;
       padding: 5px 6px;
       border-radius: 6px;
@@ -147,9 +108,7 @@
       color: #0f172a;
     }
 
-    input[type="number"]:focus,
-    select:focus,
-    textarea:focus {
+    input[type="number"]:focus {
       outline: none;
       border-color: #2563eb;
       box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
@@ -184,7 +143,7 @@
       font-weight: 600;
       font-size: 12px;
       cursor: pointer;
-      transition: background 0.15s ease, transform 0.05s ease, opacity 0.15s ease;
+      transition: background 0.15s ease, opacity 0.15s ease;
     }
 
     button.primary {
@@ -229,7 +188,6 @@
     }
 
     .file-picker-label,
-    .muted,
     .footer-note {
       font-size: 11px;
       color: #6b7280;
@@ -291,221 +249,159 @@
       color: #111827;
     }
 
-    .result-box {
-      width: 100%;
-      min-height: 140px;
-      padding: 8px;
-      border: 1px solid rgba(15, 23, 42, 0.12);
-      border-radius: 8px;
-      background: #ffffff;
-      overflow: auto;
-    }
-
-    .tree,
-    .layout-tree {
-      font-size: 11px;
-      line-height: 1.45;
-      color: #111827;
-    }
-
-    .tree details,
-    .layout-tree details {
-      border-left: 2px solid rgba(37, 99, 235, 0.12);
-      margin-left: 4px;
-      padding-left: 6px;
-    }
-
-    .tree summary,
-    .layout-tree summary {
-      cursor: pointer;
-      font-weight: 600;
-      margin: 3px 0;
-    }
-
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      border-radius: 999px;
-      padding: 2px 6px;
-      background: #e5e7eb;
-      color: #111827;
-      font-size: 10px;
-      margin-left: 4px;
-      vertical-align: middle;
-    }
-
-    .layout-note {
-      font-size: 11px;
-      color: #475569;
-      margin-top: 6px;
-      white-space: pre-line;
+    .hidden-results {
+      display: none;
     }
   </style>
 </head>
 <body>
   <div class="app-header">
-    <h1 class="app-title">Reference Board Builder_4</h1>
+    <h1 class="app-title">Reference Board Builder_5</h1>
   </div>
 
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="builder">Builder</button>
-    <button class="tab-btn" data-tab="results">Results</button>
-  </div>
-
-  <div id="tab-builder" class="tab-content active">
-    <div class="card">
-      <div class="section-title">Папка</div>
-      <div class="field">
-        <div class="file-picker">
-          <button type="button" id="folderButton" class="file-picker-button">Выбрать папку</button>
-          <span id="folderLabel" class="file-picker-label">Папка не выбрана</span>
-          <input id="folderInput" type="file" webkitdirectory directory multiple accept="image/*" />
-        </div>
+  <div class="card">
+    <div class="section-title">Папка</div>
+    <div class="field">
+      <div class="file-picker">
+        <button type="button" id="folderButton" class="file-picker-button">Выбрать папку</button>
+        <span id="folderLabel" class="file-picker-label">Папка не выбрана</span>
+        <input id="folderInput" type="file" webkitdirectory directory multiple accept="image/*" />
       </div>
-      <div id="statusBox" class="status"></div>
     </div>
+    <div id="statusBox" class="status"></div>
+  </div>
 
-    <div class="card">
-      <div class="section-title">Параметры</div>
-
-      <div class="param-group">
-        <div class="param-group-title">Большой shape</div>
-        <div class="field field-row-two">
-          <div class="subfield">
-            <label for="columnShapeWidth">Ширина</label>
-            <input id="columnShapeWidth" type="number" step="1" value="6500" />
-          </div>
-          <div class="subfield">
-            <label for="columnShapeHeight">Высота</label>
-            <input id="columnShapeHeight" type="number" step="1" value="2600" />
-          </div>
-        </div>
+  <div class="card">
+    <div class="section-title">Статистика</div>
+    <div id="statsGrid" class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Категории</div>
+        <div class="stat-value" id="statCategories">0</div>
       </div>
-
-      <div class="param-group">
-        <div class="param-group-title">Малый shape</div>
-        <div class="field field-row-two">
-          <div class="subfield">
-            <label for="frameShapeWidth">Ширина</label>
-            <input id="frameShapeWidth" type="number" step="1" value="2000" />
-          </div>
-          <div class="subfield">
-            <label for="frameShapeHeight">Высота</label>
-            <input id="frameShapeHeight" type="number" step="1" value="800" />
-          </div>
-        </div>
+      <div class="stat-card">
+        <div class="stat-label">Фреймы</div>
+        <div class="stat-value" id="statFrames">0</div>
       </div>
-
-      <div class="param-group">
-        <div class="param-group-title">Текст</div>
-        <div class="field field-row-three">
-          <div class="subfield">
-            <label for="textBoxWidth">Ширина</label>
-            <input id="textBoxWidth" type="number" step="1" value="856" />
-          </div>
-          <div class="subfield">
-            <label for="textBoxHeight">Высота</label>
-            <input id="textBoxHeight" type="number" step="1" value="550" />
-          </div>
-          <div class="subfield">
-            <label for="textFontSize">Шрифт</label>
-            <input id="textFontSize" type="number" step="1" value="130" />
-          </div>
-        </div>
+      <div class="stat-card">
+        <div class="stat-label">Группы</div>
+        <div class="stat-value" id="statGroups">0</div>
       </div>
-
-      <div class="param-group">
-        <div class="param-group-title">Фрейм</div>
-        <div class="field field-row-three">
-          <div class="subfield">
-            <label for="frameWidth">Ширина</label>
-            <input id="frameWidth" type="number" step="1" value="12000" />
-          </div>
-          <div class="subfield">
-            <label for="imageGap">Отступ картинок</label>
-            <input id="imageGap" type="number" step="1" value="25" />
-          </div>
-          <div class="subfield">
-            <label for="groupGap">Отступ групп</label>
-            <input id="groupGap" type="number" step="1" value="300" />
-          </div>
-        </div>
-      </div>
-
-      <div class="param-group">
-        <div class="param-group-title">Отступы</div>
-        <div class="field field-row-three">
-          <div class="subfield">
-            <label for="innerPadding">Внутренний</label>
-            <input id="innerPadding" type="number" step="1" value="120" />
-          </div>
-          <div class="subfield">
-            <label for="columnGap">Между колонками</label>
-            <input id="columnGap" type="number" step="1" value="13000" />
-          </div>
-          <div class="subfield">
-            <label for="headerToFramesGap">До фреймов</label>
-            <input id="headerToFramesGap" type="number" step="1" value="4000" />
-          </div>
-        </div>
-      </div>
-
-      <div class="field">
-        <label class="checkbox-row">
-          <input id="sortByColor" type="checkbox" checked />
-          Сортировать по цвету
-        </label>
-      </div>
-
-      <div class="button-row">
-        <button type="button" id="analyzeButton" class="secondary">Проверить структуру</button>
-        <button type="button" id="layoutButton" class="primary">Проверить раскладку</button>
-      </div>
-
-      <div class="button-row">
-        <button type="button" id="previewButton" class="secondary">Создать превью</button>
-        <button type="button" id="buildButton" class="primary">Создать на доске</button>
-      </div>
-
-      <div class="footer-note">
-        Активны этапы A–D.
+      <div class="stat-card">
+        <div class="stat-label">Картинки</div>
+        <div class="stat-value" id="statImages">0</div>
       </div>
     </div>
   </div>
 
-  <div id="tab-results" class="tab-content">
-    <div class="card">
-      <div class="section-title">Сводка</div>
-      <div id="statsGrid" class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Категории</div>
-          <div class="stat-value" id="statCategories">0</div>
+  <div class="card">
+    <div class="section-title">Параметры</div>
+
+    <div class="param-group">
+      <div class="param-group-title">Большой shape</div>
+      <div class="field field-row-two">
+        <div class="subfield">
+          <label for="columnShapeWidth">Ширина</label>
+          <input id="columnShapeWidth" type="number" step="1" value="6500" />
         </div>
-        <div class="stat-card">
-          <div class="stat-label">Фреймы</div>
-          <div class="stat-value" id="statFrames">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Группы</div>
-          <div class="stat-value" id="statGroups">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Картинки</div>
-          <div class="stat-value" id="statImages">0</div>
+        <div class="subfield">
+          <label for="columnShapeHeight">Высота</label>
+          <input id="columnShapeHeight" type="number" step="1" value="2600" />
         </div>
       </div>
     </div>
 
-    <div class="card">
-      <div class="section-title">Структура</div>
-      <div id="structureResult" class="result-box tree"></div>
+    <div class="param-group">
+      <div class="param-group-title">Малый shape</div>
+      <div class="field field-row-two">
+        <div class="subfield">
+          <label for="frameShapeWidth">Ширина</label>
+          <input id="frameShapeWidth" type="number" step="1" value="2000" />
+        </div>
+        <div class="subfield">
+          <label for="frameShapeHeight">Высота</label>
+          <input id="frameShapeHeight" type="number" step="1" value="800" />
+        </div>
+      </div>
     </div>
 
-    <div class="card">
-      <div class="section-title">Раскладка</div>
-      <div id="layoutResult" class="result-box layout-tree"></div>
-      <div id="layoutNote" class="layout-note"></div>
+    <div class="param-group">
+      <div class="param-group-title">Текст</div>
+      <div class="field field-row-three">
+        <div class="subfield">
+          <label for="textBoxWidth">Ширина</label>
+          <input id="textBoxWidth" type="number" step="1" value="856" />
+        </div>
+        <div class="subfield">
+          <label for="textBoxHeight">Высота</label>
+          <input id="textBoxHeight" type="number" step="1" value="550" />
+        </div>
+        <div class="subfield">
+          <label for="textFontSize">Шрифт</label>
+          <input id="textFontSize" type="number" step="1" value="130" />
+        </div>
+      </div>
     </div>
+
+    <div class="param-group">
+      <div class="param-group-title">Фрейм</div>
+      <div class="field field-row-three">
+        <div class="subfield">
+          <label for="frameWidth">Ширина</label>
+          <input id="frameWidth" type="number" step="1" value="12000" />
+        </div>
+        <div class="subfield">
+          <label for="imageGap">Отступ картинок</label>
+          <input id="imageGap" type="number" step="1" value="25" />
+        </div>
+        <div class="subfield">
+          <label for="groupGap">Отступ групп</label>
+          <input id="groupGap" type="number" step="1" value="300" />
+        </div>
+      </div>
+    </div>
+
+    <div class="param-group">
+      <div class="param-group-title">Отступы</div>
+      <div class="field field-row-three">
+        <div class="subfield">
+          <label for="innerPadding">Внутренний</label>
+          <input id="innerPadding" type="number" step="1" value="120" />
+        </div>
+        <div class="subfield">
+          <label for="columnGap">Между колонками</label>
+          <input id="columnGap" type="number" step="1" value="13000" />
+        </div>
+        <div class="subfield">
+          <label for="headerToFramesGap">До фреймов</label>
+          <input id="headerToFramesGap" type="number" step="1" value="4000" />
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="checkbox-row">
+        <input id="sortByColor" type="checkbox" checked />
+        Сортировать по цвету
+      </label>
+    </div>
+
+    <div class="button-row">
+      <button type="button" id="analyzeButton" class="secondary">Проверить структуру</button>
+      <button type="button" id="layoutButton" class="secondary">Проверить раскладку</button>
+    </div>
+
+    <div class="button-row">
+      <button type="button" id="previewButton" class="ghost">Создать превью</button>
+      <button type="button" id="buildButton" class="primary">Создать на доске</button>
+    </div>
+
+    <div class="footer-note">Статистика остается видимой, подробные технические блоки скрыты.</div>
+  </div>
+
+  <div class="hidden-results">
+    <div id="structureResult"></div>
+    <div id="layoutResult"></div>
+    <div id="layoutNote"></div>
   </div>
 </body>
 </html>
