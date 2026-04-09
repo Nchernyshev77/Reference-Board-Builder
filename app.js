@@ -13,7 +13,7 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
-const APP_VERSION = "Reference Board Builder_8";
+const APP_VERSION = "Reference Board Builder_11";
 const APP_META_ID = "reference-board-builder";
 const FRAME_VERTICAL_GAP = 1200;
 const COLUMN_HEADER_FILL = "#f4d44d";
@@ -24,12 +24,19 @@ const TEXT_BOX_BORDER = "#cbd5e1";
 const PREVIEW_FILL = "#d1d5db";
 const PREVIEW_BORDER = "#9ca3af";
 const FRAME_FILL = "#808080";
+const OUTLINE_HEADER_OFFSET_X = 150000;
+const OUTLINE_HEADER_OFFSET_Y = 45000;
+const OUTLINE_CATEGORY_WIDTH = 6000;
+const OUTLINE_CATEGORY_HEIGHT = 2500;
+const OUTLINE_SUBTYPE_WIDTH = 3500;
+const OUTLINE_SUBTYPE_HEIGHT = 1500;
+const OUTLINE_SUBTYPE_GAP_X = 600;
+const OUTLINE_SUBTYPE_GAP_Y = 350;
+const OUTLINE_SECTION_GAP_Y = 1500;
 const COLUMN_HEADER_BORDER_WIDTH = 24;
 const COLUMN_HEADER_FONT_SIZE = 700;
 const SUBTYPE_HEADER_FONT_SIZE = 200;
 const IMAGE_CREATE_CONCURRENCY = 3;
-const FRAME_ATTACH_STAGE_OFFSET_X = 1600;
-const FRAME_ATTACH_NUDGE = 2;
 
 const state = {
   files: [],
@@ -86,6 +93,52 @@ function byName(a, b) {
   });
 }
 
+
+function parseOrderedPart(rawValue) {
+  const raw = String(rawValue == null ? "" : rawValue).trim();
+  const match = raw.match(/^(\d+)_+(.*)$/u);
+  if (!match) {
+    return {
+      raw,
+      order: null,
+      displayName: raw,
+    };
+  }
+  const displayName = String(match[2] || "").trim() || raw;
+  return {
+    raw,
+    order: Number.parseInt(match[1], 10),
+    displayName,
+  };
+}
+
+function sanitizeDisplayName(rawValue) {
+  return parseOrderedPart(rawValue).displayName;
+}
+
+function sanitizeHierarchicalName(rawValue) {
+  return String(rawValue == null ? "" : rawValue)
+    .split("/")
+    .map((part) => sanitizeDisplayName(part))
+    .join(" / ");
+}
+
+function compareOrderedEntries(a, b) {
+  const aMeta = a && a.orderMeta ? a.orderMeta : parseOrderedPart(a && a.rawName ? a.rawName : a && a.name ? a.name : "");
+  const bMeta = b && b.orderMeta ? b.orderMeta : parseOrderedPart(b && b.rawName ? b.rawName : b && b.name ? b.name : "");
+
+  if (aMeta.order != null && bMeta.order != null && aMeta.order !== bMeta.order) {
+    return aMeta.order - bMeta.order;
+  }
+  if (aMeta.order != null && bMeta.order == null) return -1;
+  if (aMeta.order == null && bMeta.order != null) return 1;
+
+  return String(aMeta.displayName || "").localeCompare(String(bMeta.displayName || ""), "ru", {
+    numeric: true,
+    sensitivity: "base",
+  });
+}
+
 function formatNumber(value) {
   return new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 0 }).format(Math.round(value || 0));
 }
@@ -105,6 +158,306 @@ function isImageFile(file) {
   const name = String(file.name || "");
   const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
   return IMAGE_EXTENSIONS.has(ext);
+}
+
+function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = url;
+  });
+}
+
+async function decodeImageFromFile(file) {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    return await loadImage(objectUrl);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function getBrightnessAndSaturationFromImageElement(
+  image,
+  smallSize = 50,
+  blurPx = 3,
+  cropTopRatio = 0.3,
+  cropSideRatio = 0.2
+) {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  const width = smallSize;
+  const height = smallSize;
+  canvas.width = width;
+  canvas.height = height;
+
+  const prevFilter = ctx.filter || "none";
+  try {
+    ctx.filter = `blur(${blurPx}px)`;
+  } catch (_) {}
+  ctx.drawImage(image, 0, 0, width, height);
+  ctx.filter = prevFilter;
+
+  const cropY = Math.floor(height * cropTopRatio);
+  const cropH = height - cropY;
+  const cropX = Math.floor(width * cropSideRatio);
+  const cropW = width - 2 * cropX;
+  if (cropH <= 0 || cropW <= 0) return null;
+
+  let imageData;
+  try {
+    imageData = ctx.getImageData(cropX, cropY, cropW, cropH);
+  } catch (error) {
+    console.warn("getImageData failed:", error);
+    return null;
+  }
+
+  const data = imageData.data;
+  const totalPixels = cropW * cropH;
+  let sumY = 0;
+  let sumDiff = 0;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    sumY += y;
+    const maxv = Math.max(r, g, b);
+    const minv = Math.min(r, g, b);
+    sumDiff += maxv - minv;
+  }
+
+  return {
+    brightness: (sumY / totalPixels) / 255,
+    saturation: (sumDiff / totalPixels) / 255,
+  };
+}
+
+async function getImageInfo(file) {
+  const cached = imageInfoCache.get(file);
+  if (cached) return cached;
+
+  const promise = (async () => {
+    const image = await decodeImageFromFile(file);
+    const width = image.naturalWidth || image.width || 1;
+    const height = image.naturalHeight || image.height || 1;
+    let brightness = 0.5;
+    let saturation = 0;
+
+    try {
+      const metrics = getBrightnessAndSaturationFromImageElement(image);
+      if (metrics) {
+        brightness = metrics.brightness;
+        saturation = metrics.saturation;
+      }
+    } catch (error) {
+      console.warn("Color analysis failed", { fileName: file.name, error });
+    }
+
+    try {
+      image.src = "";
+    } catch (_) {}
+
+    const briCode = Math.max(0, Math.min(999, Math.round((1 - brightness) * 999)));
+    const satCode = Math.max(
+      0,
+      Math.min(SAT_CODE_MAX, Math.round(Math.min(1, saturation * SAT_BOOST) * SAT_CODE_MAX))
+    );
+
+    return {
+      width,
+      height,
+      brightness,
+      saturation,
+      briCode,
+      satCode,
+      satGroup: satCode <= SAT_GROUP_THRESHOLD ? 0 : 1,
+    };
+  })();
+
+  imageInfoCache.set(file, promise);
+  return promise;
+}
+
+function readConfig() {
+  const getNumber = (id, fallback) => {
+    const el = document.getElementById(id);
+    const value = el ? Number(el.value) : fallback;
+    return Number.isFinite(value) ? value : fallback;
+  };
+
+  return {
+    columnShapeWidth: getNumber("columnShapeWidth", 6500),
+    columnShapeHeight: getNumber("columnShapeHeight", 2600),
+    frameShapeWidth: getNumber("frameShapeWidth", 2000),
+    frameShapeHeight: getNumber("frameShapeHeight", 800),
+    textBoxWidth: getNumber("textBoxWidth", 856),
+    textBoxHeight: getNumber("textBoxHeight", 550),
+    textFontSize: getNumber("textFontSize", 130),
+    frameWidth: getNumber("frameWidth", 12000),
+    imageGap: getNumber("imageGap", 25),
+    groupGap: getNumber("groupGap", 300),
+    innerPadding: getNumber("innerPadding", 120),
+    columnGap: getNumber("columnGap", 13000),
+    headerToFramesGap: getNumber("headerToFramesGap", 4000),
+    sortByColor: !!document.getElementById("sortByColor")?.checked,
+  };
+}
+
+function setStatus(message, tone = "info") {
+  const box = document.getElementById("statusBox");
+  if (!box) return;
+  box.className = `status${tone === "info" ? "" : ` ${tone}`}`;
+  box.textContent = String(message || "");
+}
+
+function updateStats(summary) {
+  document.getElementById("statCategories").textContent = String(summary.categories || 0);
+  document.getElementById("statFrames").textContent = String(summary.frames || 0);
+  document.getElementById("statGroups").textContent = String(summary.groups || 0);
+  document.getElementById("statImages").textContent = String(summary.images || 0);
+}
+
+function resetResults() {
+  document.getElementById("structureResult").innerHTML = "";
+  document.getElementById("layoutResult").innerHTML = "";
+  document.getElementById("layoutNote").textContent = "";
+  updateStats({ categories: 0, frames: 0, groups: 0, images: 0 });
+}
+
+
+function parseReferenceTree(files) {
+  const categoryMap = new Map();
+  let rootName = "";
+  const skipped = [];
+  let imageCount = 0;
+
+  for (const file of files) {
+    if (!isImageFile(file)) continue;
+
+    const relPath = String(file.webkitRelativePath || file.name || "");
+    const parts = relPath.split("/").filter(Boolean);
+    if (!parts.length) {
+      skipped.push({ fileName: file.name || "image", reason: "empty-relative-path" });
+      continue;
+    }
+
+    if (!rootName) rootName = parts[0];
+    const dirs = parts.slice(1, -1);
+    if (dirs.length < 2) {
+      skipped.push({ fileName: relPath, reason: "path-must-have-category-and-subtype" });
+      continue;
+    }
+
+    const rawCategoryName = dirs[0];
+    const rawSubtypeName = dirs[1];
+    const rawColorName = dirs.length >= 3 ? dirs.slice(2).join(" / ") : null;
+
+    const categoryMeta = parseOrderedPart(rawCategoryName);
+    const subtypeMeta = parseOrderedPart(rawSubtypeName);
+    const colorMeta = rawColorName
+      ? {
+          ...parseOrderedPart(rawColorName.split("/")[0]),
+          displayName: sanitizeHierarchicalName(rawColorName),
+        }
+      : null;
+
+    let category = categoryMap.get(rawCategoryName);
+    if (!category) {
+      category = {
+        rawName: rawCategoryName,
+        name: categoryMeta.displayName,
+        orderMeta: categoryMeta,
+        subtypesMap: new Map(),
+      };
+      categoryMap.set(rawCategoryName, category);
+    }
+
+    let subtype = category.subtypesMap.get(rawSubtypeName);
+    if (!subtype) {
+      subtype = {
+        rawName: rawSubtypeName,
+        name: subtypeMeta.displayName,
+        orderMeta: subtypeMeta,
+        groupsMap: new Map(),
+      };
+      category.subtypesMap.set(rawSubtypeName, subtype);
+    }
+
+    const groupKey = rawColorName ? rawColorName : NO_COLOR_KEY;
+    let group = subtype.groupsMap.get(groupKey);
+    if (!group) {
+      group = {
+        key: groupKey,
+        rawName: rawColorName,
+        name: colorMeta ? colorMeta.displayName : null,
+        orderMeta: colorMeta,
+        hasColorFolder: !!rawColorName,
+        images: [],
+      };
+      subtype.groupsMap.set(groupKey, group);
+    }
+
+    group.images.push({
+      file,
+      name: file.name || "image",
+      relativePath: relPath,
+      rootName,
+      categoryName: category.name,
+      subtypeName: subtype.name,
+      colorName: group.name,
+    });
+    imageCount += 1;
+  }
+
+  const categories = Array.from(categoryMap.values())
+    .map((category) => ({
+      rawName: category.rawName,
+      name: category.name,
+      orderMeta: category.orderMeta,
+      subtypes: Array.from(category.subtypesMap.values())
+        .map((subtype) => ({
+          rawName: subtype.rawName,
+          name: subtype.name,
+          orderMeta: subtype.orderMeta,
+          groups: Array.from(subtype.groupsMap.values())
+            .map((group) => ({
+              key: group.key,
+              rawName: group.rawName,
+              name: group.name,
+              orderMeta: group.orderMeta,
+              hasColorFolder: group.hasColorFolder,
+              images: group.images.sort((a, b) => byName(a, b)),
+            }))
+            .sort((a, b) => {
+              if (a.hasColorFolder && !b.hasColorFolder) return -1;
+              if (!a.hasColorFolder && b.hasColorFolder) return 1;
+              return compareOrderedEntries(a, b);
+            }),
+        }))
+        .sort(compareOrderedEntries),
+    }))
+    .sort(compareOrderedEntries);
+
+  const summary = {
+    categories: categories.length,
+    frames: categories.reduce((sum, category) => sum + category.subtypes.length, 0),
+    groups: categories.reduce(
+      (sum, category) => sum + category.subtypes.reduce((inner, subtype) => inner + subtype.groups.length, 0),
+      0
+    ),
+    images: imageCount,
+    skipped,
+  };
+
+  return {
+    rootName,
+    categories,
+    summary,
+  };
 }
 
 function loadImage(url) {
@@ -773,6 +1126,7 @@ async function handleAnalyzeLayout() {
   }
 }
 
+
 function buildScene(layout, viewport) {
   const config = layout.config;
   const centerX = viewport.x + viewport.width / 2;
@@ -855,7 +1209,55 @@ function buildScene(layout, viewport) {
     return { name: category.name, header, frames };
   });
 
-  return { categories, config };
+  let outline = [];
+  if (categories.length > 0) {
+    const firstHeader = categories[0].header;
+    const firstHeaderLeft = firstHeader.x - firstHeader.width / 2;
+    const firstHeaderTop = firstHeader.y - firstHeader.height / 2;
+    const outlineLeft = firstHeaderLeft + OUTLINE_HEADER_OFFSET_X;
+    const outlineTop = firstHeaderTop - OUTLINE_HEADER_OFFSET_Y;
+    let sectionTop = outlineTop;
+
+    outline = categories.map((category) => {
+      const categoryLeft = outlineLeft;
+      const categoryTop = sectionTop;
+      const section = {
+        title: category.name,
+        headerTargetTitle: category.name,
+        headerShape: {
+          x: categoryLeft + OUTLINE_CATEGORY_WIDTH / 2,
+          y: categoryTop + OUTLINE_CATEGORY_HEIGHT / 2,
+          width: OUTLINE_CATEGORY_WIDTH,
+          height: OUTLINE_CATEGORY_HEIGHT,
+          title: category.name,
+        },
+        subtypeShapes: [],
+      };
+
+      const subtypeLeft = categoryLeft + OUTLINE_CATEGORY_WIDTH + OUTLINE_SUBTYPE_GAP_X;
+      category.frames.forEach((frame, index) => {
+        section.subtypeShapes.push({
+          x: subtypeLeft + OUTLINE_SUBTYPE_WIDTH / 2,
+          y: categoryTop + OUTLINE_SUBTYPE_HEIGHT / 2 + index * (OUTLINE_SUBTYPE_HEIGHT + OUTLINE_SUBTYPE_GAP_Y),
+          width: OUTLINE_SUBTYPE_WIDTH,
+          height: OUTLINE_SUBTYPE_HEIGHT,
+          title: frame.name,
+          targetCategoryTitle: category.name,
+          targetSubtypeTitle: frame.name,
+        });
+      });
+
+      const subtypeStackHeight = section.subtypeShapes.length
+        ? OUTLINE_SUBTYPE_HEIGHT * section.subtypeShapes.length + OUTLINE_SUBTYPE_GAP_Y * Math.max(0, section.subtypeShapes.length - 1)
+        : 0;
+      const sectionHeight = Math.max(OUTLINE_CATEGORY_HEIGHT, subtypeStackHeight);
+      sectionTop += sectionHeight + OUTLINE_SECTION_GAP_Y;
+
+      return section;
+    });
+  }
+
+  return { categories, outline, config };
 }
 
 function makeHeaderContent(title) {
@@ -963,32 +1365,6 @@ async function getScaledImageDataUrl(file, width, height) {
 }
 
 
-function getFrameAttachStagingPoint(frame, finalX, finalY, itemIndex = 0) {
-  const lane = itemIndex % 6;
-  return {
-    x: frame.left + frame.width + FRAME_ATTACH_STAGE_OFFSET_X + lane * 120,
-    y: finalY,
-  };
-}
-
-async function moveWidgetIntoFrame(widget, finalX, finalY) {
-  if (!widget || typeof widget.sync !== "function") return;
-  try {
-    widget.x = finalX + FRAME_ATTACH_NUDGE;
-    widget.y = finalY;
-    await widget.sync();
-    widget.x = finalX;
-    widget.y = finalY;
-    await widget.sync();
-  } catch (_) {
-    try {
-      widget.x = finalX;
-      widget.y = finalY;
-      await widget.sync();
-    } catch (_) {}
-  }
-}
-
 async function renderScene(scene, mode) {
   const config = scene.config;
   const created = [];
@@ -996,6 +1372,10 @@ async function renderScene(scene, mode) {
   let createdFrames = 0;
   let createdShapes = 0;
   let createdTextBoxes = 0;
+  const linkTargets = {
+    categories: new Map(),
+    subtypes: new Map(),
+  };
 
   for (const category of scene.categories) {
     const headerWidget = await createShapeSafe({
@@ -1017,6 +1397,7 @@ async function renderScene(scene, mode) {
     });
     created.push(headerWidget);
     createdShapes += 1;
+    linkTargets.categories.set(category.name, headerWidget.id);
 
     for (const frame of category.frames) {
       const frameWidget = await createFrameSafe({
@@ -1051,19 +1432,16 @@ async function renderScene(scene, mode) {
       });
       created.push(subtypeWidget);
       createdShapes += 1;
+      linkTargets.subtypes.set(`${category.name}:::${frame.name}`, subtypeWidget.id);
 
       const frameContentJobs = [];
 
       for (const group of frame.groups) {
         if (group.text) {
-          const stagedTextPoint = mode === "build"
-            ? getFrameAttachStagingPoint(frame, group.text.x, group.text.y, createdTextBoxes)
-            : { x: group.text.x, y: group.text.y };
-
           const textWidget = await createShapeSafe({
             shape: "rectangle",
-            x: stagedTextPoint.x,
-            y: stagedTextPoint.y,
+            x: group.text.x,
+            y: group.text.y,
             width: group.text.width,
             height: group.text.height,
             content: makeTextBoxContent(group.text.title),
@@ -1077,11 +1455,6 @@ async function renderScene(scene, mode) {
               textAlignVertical: "middle",
             },
           });
-
-          if (mode === "build") {
-            await moveWidgetIntoFrame(textWidget, group.text.x, group.text.y);
-          }
-
           created.push(textWidget);
           createdTextBoxes += 1;
         }
@@ -1109,19 +1482,14 @@ async function renderScene(scene, mode) {
             }
 
             const dataUrl = await getScaledImageDataUrl(image.file, image.width, image.height);
-            const stagedImagePoint = getFrameAttachStagingPoint(frame, image.x, image.y, createdImages);
-
             const imageWidget = await createImageWithRetry({
               url: dataUrl,
-              x: stagedImagePoint.x,
-              y: stagedImagePoint.y,
+              x: image.x,
+              y: image.y,
               width: image.width,
               height: image.height,
               title: image.title,
             });
-
-            await moveWidgetIntoFrame(imageWidget, image.x, image.y);
-
             try {
               await imageWidget.setMetadata(APP_META_ID, {
                 sourceFileName: image.file.name || image.title,
@@ -1137,6 +1505,71 @@ async function renderScene(scene, mode) {
       await runWithConcurrency(frameContentJobs, IMAGE_CREATE_CONCURRENCY, async (job) => {
         await job();
       });
+    }
+  }
+
+  for (const section of scene.outline || []) {
+    const categoryOutlineWidget = await createShapeSafe({
+      shape: "round_rectangle",
+      x: section.headerShape.x,
+      y: section.headerShape.y,
+      width: section.headerShape.width,
+      height: section.headerShape.height,
+      content: makeHeaderContent(section.headerShape.title),
+      style: {
+        fillColor: COLUMN_HEADER_FILL,
+        borderColor: OUTLINE_COLOR,
+        borderWidth: 3,
+        color: "#111111",
+        fontSize: 300,
+        textAlign: "center",
+        textAlignVertical: "middle",
+      },
+    });
+    created.push(categoryOutlineWidget);
+    createdShapes += 1;
+
+    try {
+      await categoryOutlineWidget.setMetadata(APP_META_ID, {
+        role: "outline-category",
+        targetType: "category-header",
+        targetId: linkTargets.categories.get(section.headerTargetTitle) || null,
+        targetTitle: section.headerTargetTitle,
+        app: APP_VERSION,
+      });
+    } catch (_) {}
+
+    for (const subtypeShape of section.subtypeShapes) {
+      const subtypeOutlineWidget = await createShapeSafe({
+        shape: "rectangle",
+        x: subtypeShape.x,
+        y: subtypeShape.y,
+        width: subtypeShape.width,
+        height: subtypeShape.height,
+        content: makeHeaderContent(subtypeShape.title),
+        style: {
+          fillColor: SUBTYPE_HEADER_FILL,
+          borderColor: OUTLINE_COLOR,
+          borderWidth: 2,
+          color: "#111111",
+          fontSize: 130,
+          textAlign: "center",
+          textAlignVertical: "middle",
+        },
+      });
+      created.push(subtypeOutlineWidget);
+      createdShapes += 1;
+
+      try {
+        await subtypeOutlineWidget.setMetadata(APP_META_ID, {
+          role: "outline-subtype",
+          targetType: "subtype-header",
+          targetId: linkTargets.subtypes.get(`${subtypeShape.targetCategoryTitle}:::${subtypeShape.targetSubtypeTitle}`) || null,
+          targetCategoryTitle: subtypeShape.targetCategoryTitle,
+          targetSubtypeTitle: subtypeShape.targetSubtypeTitle,
+          app: APP_VERSION,
+        });
+      } catch (_) {}
     }
   }
 
@@ -1165,7 +1598,7 @@ async function handleCreate(mode) {
   setBuilderButtonsDisabled(true);
 
   try {
-    setStatus(mode === "preview" ? "Создание превью на доске…" : "Создание доски…", "info");
+    setStatus("Создание доски…", "info");
     const layout = state.layout || await ensureLayout();
     if (!layout) return;
 
