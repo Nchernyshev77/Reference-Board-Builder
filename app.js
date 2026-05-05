@@ -1,4 +1,4 @@
-// Reference Board Builder_13
+// Reference Board Builder_14
 // Stages A-D:
 // - read folder tree
 // - analyze structure
@@ -13,7 +13,7 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
-const APP_VERSION = "Reference Board Builder_13";
+const APP_VERSION = "Reference Board Builder_14";
 const APP_META_ID = "reference-board-builder";
 const FRAME_VERTICAL_GAP = 1200;
 const COLUMN_HEADER_FILL = "#f4d44d";
@@ -37,11 +37,23 @@ const COLUMN_HEADER_BORDER_WIDTH = 24;
 const COLUMN_HEADER_FONT_SIZE = 700;
 const SUBTYPE_HEADER_FONT_SIZE = 200;
 const IMAGE_CREATE_CONCURRENCY = 3;
+const DEFAULT_CATEGORY_COLORS = [
+  "#D6BF52",
+  "#98B65A",
+  "#D98A56",
+  "#7FB7D6",
+  "#7EA37A",
+  "#9A85C8",
+  "#5E88C4",
+  "#5F7A3E",
+];
+const FALLBACK_CATEGORY_COLOR = "#ffffff";
 
 const state = {
   files: [],
   tree: null,
   layout: null,
+  navigation: [],
   isRendering: false,
 };
 
@@ -96,7 +108,7 @@ function byName(a, b) {
 
 function parseOrderedPart(rawValue) {
   const raw = String(rawValue == null ? "" : rawValue).trim();
-  const match = raw.match(/^(\d+)_+(.*)$/u);
+  const match = raw.match(/^(\d+)[_\-\s]*(.+)$/u);
   if (!match) {
     return {
       raw,
@@ -137,6 +149,10 @@ function compareOrderedEntries(a, b) {
     numeric: true,
     sensitivity: "base",
   });
+}
+
+function getCategoryDefaultColor(index) {
+  return DEFAULT_CATEGORY_COLORS[index] || FALLBACK_CATEGORY_COLOR;
 }
 
 function formatNumber(value) {
@@ -335,6 +351,8 @@ function resetResults() {
   document.getElementById("layoutResult").innerHTML = "";
   document.getElementById("layoutNote").textContent = "";
   updateStats({ categories: 0, frames: 0, groups: 0, images: 0 });
+  state.navigation = [];
+  renderNavigationPanel();
 }
 
 
@@ -644,6 +662,8 @@ function resetResults() {
   document.getElementById("layoutResult").innerHTML = "";
   document.getElementById("layoutNote").textContent = "";
   updateStats({ categories: 0, frames: 0, groups: 0, images: 0 });
+  state.navigation = [];
+  renderNavigationPanel();
 }
 
 function parseReferenceTree(files) {
@@ -1155,12 +1175,14 @@ function buildScene(layout, viewport) {
 
   const categories = layout.categories.map((category, categoryIndex) => {
     const x = firstCenterX + categoryIndex * config.columnGap;
+    const color = getCategoryDefaultColor(categoryIndex);
     const header = {
       x,
       y: top + config.columnShapeHeight / 2,
       width: config.columnShapeWidth,
       height: config.columnShapeHeight,
       title: category.name,
+      color,
     };
 
     const frames = category.frames.map((frame) => {
@@ -1174,12 +1196,14 @@ function buildScene(layout, viewport) {
         top: frameTop,
         left: frameLeft,
         name: frame.name,
+        color,
         subtitleShape: {
           x: frameLeft - config.frameShapeWidth / 2,
           y: frameTop + config.frameShapeHeight / 2,
           width: config.frameShapeWidth,
           height: config.frameShapeHeight,
           title: frame.name,
+          color,
         },
         groups: [],
       };
@@ -1224,7 +1248,7 @@ function buildScene(layout, viewport) {
       return frameScene;
     });
 
-    return { name: category.name, header, frames };
+    return { name: category.name, color, header, frames };
   });
 
   let outline = [];
@@ -1241,6 +1265,7 @@ function buildScene(layout, viewport) {
       const categoryTop = sectionTop;
       const section = {
         title: category.name,
+        color: category.color,
         headerTargetTitle: category.name,
         headerShape: {
           x: categoryLeft + config.outlineCategoryWidth / 2,
@@ -1248,6 +1273,7 @@ function buildScene(layout, viewport) {
           width: config.outlineCategoryWidth,
           height: config.outlineCategoryHeight,
           title: category.name,
+          color: category.color,
         },
         subtypeShapes: [],
       };
@@ -1260,6 +1286,7 @@ function buildScene(layout, viewport) {
           width: config.outlineSubtypeWidth,
           height: config.outlineSubtypeHeight,
           title: frame.name,
+          color: category.color,
           targetCategoryTitle: category.name,
           targetSubtypeTitle: frame.name,
         });
@@ -1564,12 +1591,26 @@ async function renderScene(scene, mode) {
   let createdFrames = 0;
   let createdShapes = 0;
   let createdTextBoxes = 0;
+  const navigation = [];
+
+  const navigationByCategory = new Map();
   const linkTargets = {
     categories: new Map(),
     subtypes: new Map(),
   };
 
   for (const category of scene.categories) {
+    const categoryColor = category.color || FALLBACK_CATEGORY_COLOR;
+    const navCategory = {
+      name: category.name,
+      color: categoryColor,
+      headerWidget: null,
+      subtypeWidgets: [],
+      outlineWidgets: [],
+    };
+    navigation.push(navCategory);
+    navigationByCategory.set(category.name, navCategory);
+
     const headerWidget = await createShapeSafe({
       shape: "round_rectangle",
       x: category.header.x,
@@ -1578,7 +1619,7 @@ async function renderScene(scene, mode) {
       height: category.header.height,
       content: makeHeaderContent(category.header.title),
       style: {
-        fillColor: COLUMN_HEADER_FILL,
+        fillColor: categoryColor,
         borderColor: OUTLINE_COLOR,
         borderWidth: COLUMN_HEADER_BORDER_WIDTH,
         color: "#111111",
@@ -1589,6 +1630,7 @@ async function renderScene(scene, mode) {
     });
     created.push(headerWidget);
     createdShapes += 1;
+    navCategory.headerWidget = headerWidget;
     linkTargets.categories.set(category.name, headerWidget);
 
     for (const frame of category.frames) {
@@ -1606,14 +1648,14 @@ async function renderScene(scene, mode) {
       createdFrames += 1;
 
       const subtypeWidget = await createShapeSafe({
-        shape: "rectangle",
+        shape: "round_rectangle",
         x: frame.subtitleShape.x,
         y: frame.subtitleShape.y,
         width: frame.subtitleShape.width,
         height: frame.subtitleShape.height,
         content: makeHeaderContent(frame.subtitleShape.title),
         style: {
-          fillColor: SUBTYPE_HEADER_FILL,
+          fillColor: categoryColor,
           borderColor: OUTLINE_COLOR,
           borderWidth: 3,
           color: "#111111",
@@ -1624,6 +1666,10 @@ async function renderScene(scene, mode) {
       });
       created.push(subtypeWidget);
       createdShapes += 1;
+      navCategory.subtypeWidgets.push({
+        name: frame.name,
+        widget: subtypeWidget,
+      });
       linkTargets.subtypes.set(`${category.name}:::${frame.name}`, subtypeWidget);
 
       const frameContentJobs = [];
@@ -1700,12 +1746,11 @@ async function renderScene(scene, mode) {
     }
   }
 
-  const boardInfo = await getBoardInfoSafe();
-
   for (const section of scene.outline || []) {
-    const categoryTargetWidget = linkTargets.categories.get(section.headerTargetTitle) || null;
-    const categoryTargetUrl = buildWidgetDeepLink(boardInfo, categoryTargetWidget);
-    const categoryOutlineWidget = await createShapeWithWholeItemLink({
+    const categoryColor = section.color || FALLBACK_CATEGORY_COLOR;
+    const navCategory = navigationByCategory.get(section.headerTargetTitle) || null;
+
+    const categoryOutlineWidget = await createShapeSafe({
       shape: "round_rectangle",
       x: section.headerShape.x,
       y: section.headerShape.y,
@@ -1713,7 +1758,7 @@ async function renderScene(scene, mode) {
       height: section.headerShape.height,
       content: makeHeaderContent(section.headerShape.title),
       style: {
-        fillColor: COLUMN_HEADER_FILL,
+        fillColor: categoryColor,
         borderColor: OUTLINE_COLOR,
         borderWidth: 3,
         color: "#111111",
@@ -1721,20 +1766,23 @@ async function renderScene(scene, mode) {
         textAlign: "center",
         textAlignVertical: "middle",
       },
-    }, categoryTargetUrl);
+    });
     created.push(categoryOutlineWidget);
     createdShapes += 1;
+    if (navCategory) navCategory.outlineWidgets.push(categoryOutlineWidget);
 
-    await tryApplyMiroLink(categoryOutlineWidget, categoryTargetWidget, categoryTargetUrl, {
-      role: "outline-category",
-      targetType: "category-header",
-      targetTitle: section.headerTargetTitle,
-    });
+    try {
+      await categoryOutlineWidget.setMetadata(APP_META_ID, {
+        role: "outline-category",
+        targetType: "category-header",
+        targetId: linkTargets.categories.get(section.headerTargetTitle)?.id || null,
+        targetTitle: section.headerTargetTitle,
+        app: APP_VERSION,
+      });
+    } catch (_) {}
 
     for (const subtypeShape of section.subtypeShapes) {
-      const subtypeTargetWidget = linkTargets.subtypes.get(`${subtypeShape.targetCategoryTitle}:::${subtypeShape.targetSubtypeTitle}`) || null;
-      const subtypeTargetUrl = buildWidgetDeepLink(boardInfo, subtypeTargetWidget);
-      const subtypeOutlineWidget = await createShapeWithWholeItemLink({
+      const subtypeOutlineWidget = await createShapeSafe({
         shape: "round_rectangle",
         x: subtypeShape.x,
         y: subtypeShape.y,
@@ -1742,7 +1790,7 @@ async function renderScene(scene, mode) {
         height: subtypeShape.height,
         content: makeHeaderContent(subtypeShape.title),
         style: {
-          fillColor: SUBTYPE_HEADER_FILL,
+          fillColor: categoryColor,
           borderColor: OUTLINE_COLOR,
           borderWidth: 2,
           color: "#111111",
@@ -1750,18 +1798,26 @@ async function renderScene(scene, mode) {
           textAlign: "center",
           textAlignVertical: "middle",
         },
-      }, subtypeTargetUrl);
+      });
       created.push(subtypeOutlineWidget);
       createdShapes += 1;
+      if (navCategory) navCategory.outlineWidgets.push(subtypeOutlineWidget);
 
-      await tryApplyMiroLink(subtypeOutlineWidget, subtypeTargetWidget, subtypeTargetUrl, {
-        role: "outline-subtype",
-        targetType: "subtype-header",
-        targetCategoryTitle: subtypeShape.targetCategoryTitle,
-        targetSubtypeTitle: subtypeShape.targetSubtypeTitle,
-      });
+      try {
+        await subtypeOutlineWidget.setMetadata(APP_META_ID, {
+          role: "outline-subtype",
+          targetType: "subtype-header",
+          targetId: linkTargets.subtypes.get(`${subtypeShape.targetCategoryTitle}:::${subtypeShape.targetSubtypeTitle}`)?.id || null,
+          targetCategoryTitle: subtypeShape.targetCategoryTitle,
+          targetSubtypeTitle: subtypeShape.targetSubtypeTitle,
+          app: APP_VERSION,
+        });
+      } catch (_) {}
     }
   }
+
+  state.navigation = navigation;
+  renderNavigationPanel();
 
   return {
     widgets: created,
@@ -1772,6 +1828,137 @@ async function renderScene(scene, mode) {
       textBoxes: createdTextBoxes,
     },
   };
+}
+
+
+function getNavigationCategory(index) {
+  const numericIndex = Number.parseInt(String(index), 10);
+  if (!Number.isFinite(numericIndex)) return null;
+  return state.navigation[numericIndex] || null;
+}
+
+function getNavigationSubtype(categoryIndex, subtypeIndex) {
+  const category = getNavigationCategory(categoryIndex);
+  if (!category) return null;
+  const numericSubtypeIndex = Number.parseInt(String(subtypeIndex), 10);
+  if (!Number.isFinite(numericSubtypeIndex)) return null;
+  return category.subtypeWidgets[numericSubtypeIndex] || null;
+}
+
+function renderNavigationPanel() {
+  const box = document.getElementById("navigationResult");
+  if (!box) return;
+
+  if (!state.navigation.length) {
+    box.innerHTML = '<div class="muted">Навигация появится после создания доски.</div>';
+    return;
+  }
+
+  box.innerHTML = state.navigation.map((category, categoryIndex) => `
+    <details class="nav-section" ${categoryIndex === 0 ? "open" : ""}>
+      <summary>${escapeHtml(category.name)}</summary>
+      <div class="nav-section-body">
+        <label class="nav-color-row">
+          <span>Цвет</span>
+          <input type="color" class="nav-color-input" data-nav-action="color" data-category-index="${categoryIndex}" value="${escapeHtml(category.color || FALLBACK_CATEGORY_COLOR)}" />
+        </label>
+        <button type="button" class="nav-button" data-nav-action="zoom-category" data-category-index="${categoryIndex}">
+          Главный shape
+        </button>
+        <div class="nav-subtype-list">
+          ${category.subtypeWidgets.map((subtype, subtypeIndex) => `
+            <button type="button" class="nav-button nav-button-light" data-nav-action="zoom-subtype" data-category-index="${categoryIndex}" data-subtype-index="${subtypeIndex}">
+              ${escapeHtml(subtype.name)}
+            </button>
+          `).join("")}
+        </div>
+      </div>
+    </details>
+  `).join("");
+}
+
+async function zoomToNavigationWidget(widget) {
+  if (!widget) {
+    await notifyWarning("Элемент не найден");
+    return;
+  }
+
+  try {
+    await board.viewport.zoomTo([widget]);
+  } catch (error) {
+    console.warn("[Reference Board Builder] zoomTo failed", error);
+    await notifyError("Не удалось приблизить элемент", error);
+  }
+}
+
+async function setWidgetFillColor(widget, color) {
+  if (!widget || !color) return false;
+
+  try {
+    if (typeof widget.setStyle === "function") {
+      await widget.setStyle({ fillColor: color });
+      return true;
+    }
+  } catch (error) {
+    console.warn("[Reference Board Builder] setStyle fillColor failed", error);
+  }
+
+  try {
+    if (!widget.style || typeof widget.style !== "object") widget.style = {};
+    widget.style.fillColor = color;
+    if (typeof widget.sync === "function") {
+      await widget.sync();
+      return true;
+    }
+  } catch (error) {
+    console.warn("[Reference Board Builder] style fillColor sync failed", error);
+  }
+
+  return false;
+}
+
+async function applyNavigationCategoryColor(categoryIndex, color) {
+  const category = getNavigationCategory(categoryIndex);
+  if (!category) return;
+
+  category.color = color;
+  const widgets = [
+    category.headerWidget,
+    ...category.subtypeWidgets.map((subtype) => subtype.widget),
+    ...category.outlineWidgets,
+  ].filter(Boolean);
+
+  await Promise.all(widgets.map((widget) => setWidgetFillColor(widget, color)));
+}
+
+function initNavigationPanel() {
+  renderNavigationPanel();
+
+  const box = document.getElementById("navigationResult");
+  if (!box) return;
+
+  box.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-nav-action]");
+    if (!button || button.tagName === "INPUT") return;
+
+    const action = button.dataset.navAction;
+    if (action === "zoom-category") {
+      const category = getNavigationCategory(button.dataset.categoryIndex);
+      await zoomToNavigationWidget(category?.headerWidget);
+      return;
+    }
+
+    if (action === "zoom-subtype") {
+      const subtype = getNavigationSubtype(button.dataset.categoryIndex, button.dataset.subtypeIndex);
+      await zoomToNavigationWidget(subtype?.widget);
+    }
+  });
+
+  box.addEventListener("input", async (event) => {
+    const input = event.target.closest("input[data-nav-action='color']");
+    if (!input) return;
+    await applyNavigationCategoryColor(input.dataset.categoryIndex, input.value);
+  });
 }
 
 function setBuilderButtonsDisabled(isDisabled) {
@@ -1852,6 +2039,7 @@ window.addEventListener("DOMContentLoaded", () => {
   resetResults();
   setStatus("");
   initTabs();
+  initNavigationPanel();
 
   const folderButton = document.getElementById("folderButton");
   const folderInput = document.getElementById("folderInput");

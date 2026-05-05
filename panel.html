@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reference Board Builder_13</title>
+  <title>Reference Board Builder_14</title>
   <script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
   <script src="app.js" defer></script>
   <style>
@@ -11,13 +11,25 @@
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color-scheme: light;
     }
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+    }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 10px;
+      padding: 0;
       font-size: 13px;
       color: #111827;
       background: #f9fafb;
+    }
+    .app-shell {
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 10px;
+      -webkit-overflow-scrolling: touch;
     }
     .app-header { margin-bottom: 8px; }
     .app-title {
@@ -123,7 +135,8 @@
       opacity: 0.92;
       line-height: 1.2;
     }
-    input[type="number"] {
+    input[type="number"],
+    input[type="color"] {
       width: 100%;
       padding: 5px 6px;
       border-radius: 6px;
@@ -132,7 +145,13 @@
       background: #ffffff;
       color: #0f172a;
     }
-    input[type="number"]:focus {
+    input[type="color"] {
+      padding: 2px;
+      height: 28px;
+      cursor: pointer;
+    }
+    input[type="number"]:focus,
+    input[type="color"]:focus {
       outline: none;
       border-color: #2563eb;
       box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
@@ -270,11 +289,73 @@
       margin-top: 6px;
       white-space: pre-line;
     }
+    .navigation-box {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .nav-section {
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      border-radius: 8px;
+      background: #ffffff;
+      overflow: hidden;
+    }
+    .nav-section > summary {
+      cursor: pointer;
+      user-select: none;
+      padding: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #f8fafc;
+      list-style: none;
+    }
+    .nav-section > summary::-webkit-details-marker { display: none; }
+    .nav-section > summary::after {
+      content: "▾";
+      float: right;
+      color: #64748b;
+    }
+    .nav-section:not([open]) > summary::after { content: "▸"; }
+    .nav-section-body {
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .nav-color-row {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 2px;
+    }
+    .nav-button {
+      width: 100%;
+      padding: 7px 8px;
+      border-radius: 8px;
+      border: 1px solid rgba(15, 23, 42, 0.16);
+      background: #2563eb;
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+    }
+    .nav-button-light {
+      background: #ffffff;
+      color: #111827;
+    }
+    .nav-subtype-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
   </style>
 </head>
 <body>
+  <div class="app-shell">
   <div class="app-header">
-    <h1 class="app-title">Reference Board Builder_13</h1>
+    <h1 class="app-title">Reference Board Builder_14</h1>
   </div>
 
   <div class="tabs">
@@ -446,6 +527,13 @@
         </div>
       </details>
     </div>
+
+    <div class="card">
+      <div class="section-title">Навигация</div>
+      <div id="navigationResult" class="navigation-box">
+        <div class="muted">Навигация появится после создания доски.</div>
+      </div>
+    </div>
   </div>
 
   <div id="tab-stats" class="tab-content">
@@ -481,6 +569,7 @@
       <div id="layoutResult" class="result-box layout-tree"></div>
       <div id="layoutNote" class="layout-note"></div>
     </div>
+  </div>
   </div>
 </body>
 </html>
