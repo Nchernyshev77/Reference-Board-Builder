@@ -1,4 +1,4 @@
-// Reference Board Builder_6
+// Reference Board Builder_12
 // Stages A-D:
 // - read folder tree
 // - analyze structure
@@ -13,7 +13,7 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
-const APP_VERSION = "Reference Board Builder_11";
+const APP_VERSION = "Reference Board Builder_12";
 const APP_META_ID = "reference-board-builder";
 const FRAME_VERTICAL_GAP = 1200;
 const COLUMN_HEADER_FILL = "#f4d44d";
@@ -303,6 +303,15 @@ function readConfig() {
     innerPadding: getNumber("innerPadding", 120),
     columnGap: getNumber("columnGap", 13000),
     headerToFramesGap: getNumber("headerToFramesGap", 4000),
+    outlineOffsetX: getNumber("outlineOffsetX", OUTLINE_HEADER_OFFSET_X),
+    outlineOffsetY: getNumber("outlineOffsetY", OUTLINE_HEADER_OFFSET_Y),
+    outlineCategoryWidth: getNumber("outlineCategoryWidth", OUTLINE_CATEGORY_WIDTH),
+    outlineCategoryHeight: getNumber("outlineCategoryHeight", OUTLINE_CATEGORY_HEIGHT),
+    outlineSubtypeWidth: getNumber("outlineSubtypeWidth", OUTLINE_SUBTYPE_WIDTH),
+    outlineSubtypeHeight: getNumber("outlineSubtypeHeight", OUTLINE_SUBTYPE_HEIGHT),
+    outlineSubtypeGapX: getNumber("outlineSubtypeGapX", OUTLINE_SUBTYPE_GAP_X),
+    outlineSubtypeGapY: getNumber("outlineSubtypeGapY", OUTLINE_SUBTYPE_GAP_Y),
+    outlineSectionGapY: getNumber("outlineSectionGapY", OUTLINE_SECTION_GAP_Y),
     sortByColor: !!document.getElementById("sortByColor")?.checked,
   };
 }
@@ -603,6 +612,15 @@ function readConfig() {
     innerPadding: getNumber("innerPadding", 120),
     columnGap: getNumber("columnGap", 13000),
     headerToFramesGap: getNumber("headerToFramesGap", 4000),
+    outlineOffsetX: getNumber("outlineOffsetX", OUTLINE_HEADER_OFFSET_X),
+    outlineOffsetY: getNumber("outlineOffsetY", OUTLINE_HEADER_OFFSET_Y),
+    outlineCategoryWidth: getNumber("outlineCategoryWidth", OUTLINE_CATEGORY_WIDTH),
+    outlineCategoryHeight: getNumber("outlineCategoryHeight", OUTLINE_CATEGORY_HEIGHT),
+    outlineSubtypeWidth: getNumber("outlineSubtypeWidth", OUTLINE_SUBTYPE_WIDTH),
+    outlineSubtypeHeight: getNumber("outlineSubtypeHeight", OUTLINE_SUBTYPE_HEIGHT),
+    outlineSubtypeGapX: getNumber("outlineSubtypeGapX", OUTLINE_SUBTYPE_GAP_X),
+    outlineSubtypeGapY: getNumber("outlineSubtypeGapY", OUTLINE_SUBTYPE_GAP_Y),
+    outlineSectionGapY: getNumber("outlineSectionGapY", OUTLINE_SECTION_GAP_Y),
     sortByColor: !!document.getElementById("sortByColor")?.checked,
   };
 }
@@ -1214,8 +1232,8 @@ function buildScene(layout, viewport) {
     const firstHeader = categories[0].header;
     const firstHeaderLeft = firstHeader.x - firstHeader.width / 2;
     const firstHeaderTop = firstHeader.y - firstHeader.height / 2;
-    const outlineLeft = firstHeaderLeft + OUTLINE_HEADER_OFFSET_X;
-    const outlineTop = firstHeaderTop - OUTLINE_HEADER_OFFSET_Y;
+    const outlineLeft = firstHeaderLeft - config.outlineOffsetX;
+    const outlineTop = firstHeaderTop - config.outlineOffsetY;
     let sectionTop = outlineTop;
 
     outline = categories.map((category) => {
@@ -1225,22 +1243,22 @@ function buildScene(layout, viewport) {
         title: category.name,
         headerTargetTitle: category.name,
         headerShape: {
-          x: categoryLeft + OUTLINE_CATEGORY_WIDTH / 2,
-          y: categoryTop + OUTLINE_CATEGORY_HEIGHT / 2,
-          width: OUTLINE_CATEGORY_WIDTH,
-          height: OUTLINE_CATEGORY_HEIGHT,
+          x: categoryLeft + config.outlineCategoryWidth / 2,
+          y: categoryTop + config.outlineCategoryHeight / 2,
+          width: config.outlineCategoryWidth,
+          height: config.outlineCategoryHeight,
           title: category.name,
         },
         subtypeShapes: [],
       };
 
-      const subtypeLeft = categoryLeft + OUTLINE_CATEGORY_WIDTH + OUTLINE_SUBTYPE_GAP_X;
+      const subtypeLeft = categoryLeft + config.outlineCategoryWidth + config.outlineSubtypeGapX;
       category.frames.forEach((frame, index) => {
         section.subtypeShapes.push({
-          x: subtypeLeft + OUTLINE_SUBTYPE_WIDTH / 2,
-          y: categoryTop + OUTLINE_SUBTYPE_HEIGHT / 2 + index * (OUTLINE_SUBTYPE_HEIGHT + OUTLINE_SUBTYPE_GAP_Y),
-          width: OUTLINE_SUBTYPE_WIDTH,
-          height: OUTLINE_SUBTYPE_HEIGHT,
+          x: subtypeLeft + config.outlineSubtypeWidth / 2,
+          y: categoryTop + config.outlineSubtypeHeight / 2 + index * (config.outlineSubtypeHeight + config.outlineSubtypeGapY),
+          width: config.outlineSubtypeWidth,
+          height: config.outlineSubtypeHeight,
           title: frame.name,
           targetCategoryTitle: category.name,
           targetSubtypeTitle: frame.name,
@@ -1248,10 +1266,10 @@ function buildScene(layout, viewport) {
       });
 
       const subtypeStackHeight = section.subtypeShapes.length
-        ? OUTLINE_SUBTYPE_HEIGHT * section.subtypeShapes.length + OUTLINE_SUBTYPE_GAP_Y * Math.max(0, section.subtypeShapes.length - 1)
+        ? config.outlineSubtypeHeight * section.subtypeShapes.length + config.outlineSubtypeGapY * Math.max(0, section.subtypeShapes.length - 1)
         : 0;
-      const sectionHeight = Math.max(OUTLINE_CATEGORY_HEIGHT, subtypeStackHeight);
-      sectionTop += sectionHeight + OUTLINE_SECTION_GAP_Y;
+      const sectionHeight = Math.max(config.outlineCategoryHeight, subtypeStackHeight);
+      sectionTop += sectionHeight + config.outlineSectionGapY;
 
       return section;
     });
@@ -1262,6 +1280,107 @@ function buildScene(layout, viewport) {
 
 function makeHeaderContent(title) {
   return `<p><strong>${escapeHtml(title)}</strong></p>`;
+}
+
+function makeLinkedHeaderContent(title, url) {
+  if (!url) return makeHeaderContent(title);
+  return `<p><a href="${escapeHtml(url)}"><strong>${escapeHtml(title)}</strong></a></p>`;
+}
+
+function getBoardIdFromInfo(info) {
+  if (!info || typeof info !== "object") return null;
+  return info.id || info.boardId || info.board_id || info.shortId || null;
+}
+
+async function getBoardInfoSafe() {
+  try {
+    if (board && typeof board.getInfo === "function") {
+      return await board.getInfo();
+    }
+  } catch (error) {
+    console.warn("[Reference Board Builder] board.getInfo failed", error);
+  }
+  return null;
+}
+
+function buildWidgetDeepLink(boardInfo, targetWidget) {
+  const targetId = targetWidget && targetWidget.id ? String(targetWidget.id) : "";
+  const boardId = getBoardIdFromInfo(boardInfo);
+  if (!targetId || !boardId) return null;
+  return `https://miro.com/app/board/${encodeURIComponent(boardId)}/?moveToWidget=${encodeURIComponent(targetId)}&cot=14`;
+}
+
+async function tryApplyMiroLink(sourceWidget, targetWidget, url, metadata = {}) {
+  let linkApplied = false;
+
+  try {
+    if (sourceWidget && typeof sourceWidget.setMetadata === "function") {
+      await sourceWidget.setMetadata(APP_META_ID, {
+        ...metadata,
+        targetId: targetWidget && targetWidget.id ? targetWidget.id : null,
+        targetUrl: url || null,
+        linkApplied: false,
+        app: APP_VERSION,
+      });
+    }
+  } catch (_) {}
+
+  const attempts = [
+    async () => {
+      if (sourceWidget && typeof sourceWidget.linkTo === "function") {
+        await sourceWidget.linkTo(targetWidget);
+        return true;
+      }
+      return false;
+    },
+    async () => {
+      if (sourceWidget && typeof sourceWidget.setLink === "function") {
+        await sourceWidget.setLink({ type: "widget", targetId: targetWidget && targetWidget.id });
+        return true;
+      }
+      return false;
+    },
+    async () => {
+      if (sourceWidget && typeof sourceWidget.addLink === "function") {
+        await sourceWidget.addLink({ type: "widget", targetId: targetWidget && targetWidget.id });
+        return true;
+      }
+      return false;
+    },
+    async () => {
+      if (sourceWidget && typeof sourceWidget.setLinks === "function") {
+        await sourceWidget.setLinks([{ type: "widget", targetId: targetWidget && targetWidget.id }]);
+        return true;
+      }
+      return false;
+    },
+  ];
+
+  for (const attempt of attempts) {
+    try {
+      const result = await attempt();
+      if (result) {
+        linkApplied = true;
+        break;
+      }
+    } catch (error) {
+      console.warn("[Reference Board Builder] Link attempt failed", error);
+    }
+  }
+
+  try {
+    if (sourceWidget && typeof sourceWidget.setMetadata === "function") {
+      await sourceWidget.setMetadata(APP_META_ID, {
+        ...metadata,
+        targetId: targetWidget && targetWidget.id ? targetWidget.id : null,
+        targetUrl: url || null,
+        linkApplied,
+        app: APP_VERSION,
+      });
+    }
+  } catch (_) {}
+
+  return linkApplied;
 }
 
 function makeTextBoxContent(title) {
@@ -1298,8 +1417,23 @@ async function createFrameSafe(params) {
   return frameWidget;
 }
 
+function stripHtmlLinks(content) {
+  return String(content || "").replace(/<a\b[^>]*>(.*?)<\/a>/gis, "$1");
+}
+
 async function createShapeSafe(params) {
-  return board.createShape(params);
+  try {
+    return await board.createShape(params);
+  } catch (error) {
+    const content = String(params && params.content ? params.content : "");
+    if (content.includes("<a")) {
+      return await board.createShape({
+        ...params,
+        content: stripHtmlLinks(content),
+      });
+    }
+    throw error;
+  }
 }
 
 async function createImageWithRetry(params, maxRetries = 2) {
@@ -1397,7 +1531,7 @@ async function renderScene(scene, mode) {
     });
     created.push(headerWidget);
     createdShapes += 1;
-    linkTargets.categories.set(category.name, headerWidget.id);
+    linkTargets.categories.set(category.name, headerWidget);
 
     for (const frame of category.frames) {
       const frameWidget = await createFrameSafe({
@@ -1432,7 +1566,7 @@ async function renderScene(scene, mode) {
       });
       created.push(subtypeWidget);
       createdShapes += 1;
-      linkTargets.subtypes.set(`${category.name}:::${frame.name}`, subtypeWidget.id);
+      linkTargets.subtypes.set(`${category.name}:::${frame.name}`, subtypeWidget);
 
       const frameContentJobs = [];
 
@@ -1508,14 +1642,18 @@ async function renderScene(scene, mode) {
     }
   }
 
+  const boardInfo = await getBoardInfoSafe();
+
   for (const section of scene.outline || []) {
+    const categoryTargetWidget = linkTargets.categories.get(section.headerTargetTitle) || null;
+    const categoryTargetUrl = buildWidgetDeepLink(boardInfo, categoryTargetWidget);
     const categoryOutlineWidget = await createShapeSafe({
       shape: "round_rectangle",
       x: section.headerShape.x,
       y: section.headerShape.y,
       width: section.headerShape.width,
       height: section.headerShape.height,
-      content: makeHeaderContent(section.headerShape.title),
+      content: makeLinkedHeaderContent(section.headerShape.title, categoryTargetUrl),
       style: {
         fillColor: COLUMN_HEADER_FILL,
         borderColor: OUTLINE_COLOR,
@@ -1529,24 +1667,22 @@ async function renderScene(scene, mode) {
     created.push(categoryOutlineWidget);
     createdShapes += 1;
 
-    try {
-      await categoryOutlineWidget.setMetadata(APP_META_ID, {
-        role: "outline-category",
-        targetType: "category-header",
-        targetId: linkTargets.categories.get(section.headerTargetTitle) || null,
-        targetTitle: section.headerTargetTitle,
-        app: APP_VERSION,
-      });
-    } catch (_) {}
+    await tryApplyMiroLink(categoryOutlineWidget, categoryTargetWidget, categoryTargetUrl, {
+      role: "outline-category",
+      targetType: "category-header",
+      targetTitle: section.headerTargetTitle,
+    });
 
     for (const subtypeShape of section.subtypeShapes) {
+      const subtypeTargetWidget = linkTargets.subtypes.get(`${subtypeShape.targetCategoryTitle}:::${subtypeShape.targetSubtypeTitle}`) || null;
+      const subtypeTargetUrl = buildWidgetDeepLink(boardInfo, subtypeTargetWidget);
       const subtypeOutlineWidget = await createShapeSafe({
-        shape: "rectangle",
+        shape: "round_rectangle",
         x: subtypeShape.x,
         y: subtypeShape.y,
         width: subtypeShape.width,
         height: subtypeShape.height,
-        content: makeHeaderContent(subtypeShape.title),
+        content: makeLinkedHeaderContent(subtypeShape.title, subtypeTargetUrl),
         style: {
           fillColor: SUBTYPE_HEADER_FILL,
           borderColor: OUTLINE_COLOR,
@@ -1560,16 +1696,12 @@ async function renderScene(scene, mode) {
       created.push(subtypeOutlineWidget);
       createdShapes += 1;
 
-      try {
-        await subtypeOutlineWidget.setMetadata(APP_META_ID, {
-          role: "outline-subtype",
-          targetType: "subtype-header",
-          targetId: linkTargets.subtypes.get(`${subtypeShape.targetCategoryTitle}:::${subtypeShape.targetSubtypeTitle}`) || null,
-          targetCategoryTitle: subtypeShape.targetCategoryTitle,
-          targetSubtypeTitle: subtypeShape.targetSubtypeTitle,
-          app: APP_VERSION,
-        });
-      } catch (_) {}
+      await tryApplyMiroLink(subtypeOutlineWidget, subtypeTargetWidget, subtypeTargetUrl, {
+        role: "outline-subtype",
+        targetType: "subtype-header",
+        targetCategoryTitle: subtypeShape.targetCategoryTitle,
+        targetSubtypeTitle: subtypeShape.targetSubtypeTitle,
+      });
     }
   }
 
