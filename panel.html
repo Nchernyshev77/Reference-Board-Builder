@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reference Board Builder_15</title>
+  <title>Reference Board Builder_16</title>
   <script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
   <script src="app.js" defer></script>
   <style>
@@ -13,10 +13,9 @@
     }
     html,
     body {
-      min-height: 100%;
-      height: auto;
-      overflow-y: auto;
-      overflow-x: hidden;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
     }
     * { box-sizing: border-box; }
     body {
@@ -30,9 +29,10 @@
     }
     .app-shell {
       min-height: 100vh;
-      height: auto;
-      overflow: visible;
-      padding: 10px 10px 60px;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 10px 10px 80px;
       -webkit-overflow-scrolling: touch;
     }
     .app-header { margin-bottom: 8px; }
@@ -326,17 +326,13 @@
       flex-direction: column;
       gap: 6px;
     }
-    .nav-color-row,
-    .nav-brightness-row {
+    .nav-color-row {
       display: grid;
-      grid-template-columns: 58px 1fr auto;
+      grid-template-columns: 58px 1fr;
       align-items: center;
       gap: 8px;
       margin-bottom: 2px;
       font-size: 12px;
-    }
-    .nav-color-row {
-      grid-template-columns: 58px 1fr;
     }
     .nav-color-input {
       width: 100%;
@@ -345,9 +341,6 @@
       border: 1px solid rgba(15, 23, 42, 0.16);
       border-radius: 7px;
       background: #ffffff;
-    }
-    .nav-brightness-input {
-      width: 100%;
     }
     .nav-zoom-row,
     .nav-subtype-row {
@@ -381,7 +374,7 @@
 <body>
   <div class="app-shell">
   <div class="app-header">
-    <h1 class="app-title">Reference Board Builder_15</h1>
+    <h1 class="app-title">Reference Board Builder_16</h1>
   </div>
 
   <div class="tabs">
@@ -486,8 +479,8 @@
                 <input id="innerPadding" type="number" step="1" value="120" />
               </div>
               <div class="subfield">
-                <label for="columnGap">Между колонками</label>
-                <input id="columnGap" type="number" step="1" value="180000" />
+                <label for="columnGap">Отступ от фрейма</label>
+                <input id="columnGap" type="number" step="1" value="18000" />
               </div>
               <div class="subfield">
                 <label for="headerToFramesGap">До фреймов</label>
