@@ -1,4 +1,4 @@
-// Reference Board Builder_14
+// Reference Board Builder_15
 // Stages A-D:
 // - read folder tree
 // - analyze structure
@@ -13,7 +13,7 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
-const APP_VERSION = "Reference Board Builder_14";
+const APP_VERSION = "Reference Board Builder_15";
 const APP_META_ID = "reference-board-builder";
 const FRAME_VERTICAL_GAP = 1200;
 const COLUMN_HEADER_FILL = "#f4d44d";
@@ -108,7 +108,7 @@ function byName(a, b) {
 
 function parseOrderedPart(rawValue) {
   const raw = String(rawValue == null ? "" : rawValue).trim();
-  const match = raw.match(/^(\d+)[_\-\s]*(.+)$/u);
+  const match = raw.match(/^\s*(\d+)(?:[\s._\-–—)]+)?(.+)$/u);
   if (!match) {
     return {
       raw,
@@ -174,6 +174,10 @@ function isImageFile(file) {
   const name = String(file.name || "");
   const ext = name.includes(".") ? name.split(".").pop().toLowerCase() : "";
   return IMAGE_EXTENSIONS.has(ext);
+}
+
+function isIgnoredImageFolderName(value) {
+  return String(value == null ? "" : value).trim().toLowerCase() === "image";
 }
 
 function loadImage(url) {
@@ -317,7 +321,7 @@ function readConfig() {
     imageGap: getNumber("imageGap", 25),
     groupGap: getNumber("groupGap", 300),
     innerPadding: getNumber("innerPadding", 120),
-    columnGap: getNumber("columnGap", 13000),
+    columnGap: getNumber("columnGap", 180000),
     headerToFramesGap: getNumber("headerToFramesGap", 4000),
     outlineOffsetX: getNumber("outlineOffsetX", OUTLINE_HEADER_OFFSET_X),
     outlineOffsetY: getNumber("outlineOffsetY", OUTLINE_HEADER_OFFSET_Y),
@@ -376,6 +380,11 @@ function parseReferenceTree(files) {
     const dirs = parts.slice(1, -1);
     if (dirs.length < 2) {
       skipped.push({ fileName: relPath, reason: "path-must-have-category-and-subtype" });
+      continue;
+    }
+
+    if (dirs.some(isIgnoredImageFolderName)) {
+      skipped.push({ fileName: relPath, reason: "ignored-image-folder" });
       continue;
     }
 
@@ -628,7 +637,7 @@ function readConfig() {
     imageGap: getNumber("imageGap", 25),
     groupGap: getNumber("groupGap", 300),
     innerPadding: getNumber("innerPadding", 120),
-    columnGap: getNumber("columnGap", 13000),
+    columnGap: getNumber("columnGap", 180000),
     headerToFramesGap: getNumber("headerToFramesGap", 4000),
     outlineOffsetX: getNumber("outlineOffsetX", OUTLINE_HEADER_OFFSET_X),
     outlineOffsetY: getNumber("outlineOffsetY", OUTLINE_HEADER_OFFSET_Y),
@@ -1258,11 +1267,11 @@ function buildScene(layout, viewport) {
     const firstHeaderTop = firstHeader.y - firstHeader.height / 2;
     const outlineLeft = firstHeaderLeft - config.outlineOffsetX;
     const outlineTop = firstHeaderTop - config.outlineOffsetY;
-    let sectionTop = outlineTop;
+    let sectionLeft = outlineLeft;
 
     outline = categories.map((category) => {
-      const categoryLeft = outlineLeft;
-      const categoryTop = sectionTop;
+      const categoryLeft = sectionLeft;
+      const categoryTop = outlineTop;
       const section = {
         title: category.name,
         color: category.color,
@@ -1292,11 +1301,9 @@ function buildScene(layout, viewport) {
         });
       });
 
-      const subtypeStackHeight = section.subtypeShapes.length
-        ? config.outlineSubtypeHeight * section.subtypeShapes.length + config.outlineSubtypeGapY * Math.max(0, section.subtypeShapes.length - 1)
-        : 0;
-      const sectionHeight = Math.max(config.outlineCategoryHeight, subtypeStackHeight);
-      sectionTop += sectionHeight + config.outlineSectionGapY;
+      const sectionWidth = config.outlineCategoryWidth
+        + (section.subtypeShapes.length ? config.outlineSubtypeGapX + config.outlineSubtypeWidth : 0);
+      sectionLeft += sectionWidth + config.outlineSectionGapY;
 
       return section;
     });
@@ -1604,8 +1611,12 @@ async function renderScene(scene, mode) {
     const navCategory = {
       name: category.name,
       color: categoryColor,
+      baseColor: categoryColor,
+      brightness: getBrightnessPercent(categoryColor),
       headerWidget: null,
+      outlineHeaderWidget: null,
       subtypeWidgets: [],
+      outlineSubtypeWidgets: [],
       outlineWidgets: [],
     };
     navigation.push(navCategory);
@@ -1648,7 +1659,7 @@ async function renderScene(scene, mode) {
       createdFrames += 1;
 
       const subtypeWidget = await createShapeSafe({
-        shape: "round_rectangle",
+        shape: "rectangle",
         x: frame.subtitleShape.x,
         y: frame.subtitleShape.y,
         width: frame.subtitleShape.width,
@@ -1769,7 +1780,10 @@ async function renderScene(scene, mode) {
     });
     created.push(categoryOutlineWidget);
     createdShapes += 1;
-    if (navCategory) navCategory.outlineWidgets.push(categoryOutlineWidget);
+    if (navCategory) {
+      navCategory.outlineHeaderWidget = categoryOutlineWidget;
+      navCategory.outlineWidgets.push(categoryOutlineWidget);
+    }
 
     try {
       await categoryOutlineWidget.setMetadata(APP_META_ID, {
@@ -1801,7 +1815,13 @@ async function renderScene(scene, mode) {
       });
       created.push(subtypeOutlineWidget);
       createdShapes += 1;
-      if (navCategory) navCategory.outlineWidgets.push(subtypeOutlineWidget);
+      if (navCategory) {
+        navCategory.outlineSubtypeWidgets.push({
+          name: subtypeShape.title,
+          widget: subtypeOutlineWidget,
+        });
+        navCategory.outlineWidgets.push(subtypeOutlineWidget);
+      }
 
       try {
         await subtypeOutlineWidget.setMetadata(APP_META_ID, {
@@ -1845,6 +1865,14 @@ function getNavigationSubtype(categoryIndex, subtypeIndex) {
   return category.subtypeWidgets[numericSubtypeIndex] || null;
 }
 
+function getNavigationOutlineSubtype(categoryIndex, subtypeIndex) {
+  const category = getNavigationCategory(categoryIndex);
+  if (!category) return null;
+  const numericSubtypeIndex = Number.parseInt(String(subtypeIndex), 10);
+  if (!Number.isFinite(numericSubtypeIndex)) return null;
+  return category.outlineSubtypeWidgets[numericSubtypeIndex] || null;
+}
+
 function renderNavigationPanel() {
   const box = document.getElementById("navigationResult");
   if (!box) return;
@@ -1854,27 +1882,47 @@ function renderNavigationPanel() {
     return;
   }
 
-  box.innerHTML = state.navigation.map((category, categoryIndex) => `
-    <details class="nav-section" ${categoryIndex === 0 ? "open" : ""}>
-      <summary>${escapeHtml(category.name)}</summary>
-      <div class="nav-section-body">
-        <label class="nav-color-row">
-          <span>Цвет</span>
-          <input type="color" class="nav-color-input" data-nav-action="color" data-category-index="${categoryIndex}" value="${escapeHtml(category.color || FALLBACK_CATEGORY_COLOR)}" />
-        </label>
-        <button type="button" class="nav-button" data-nav-action="zoom-category" data-category-index="${categoryIndex}">
-          Главный shape
-        </button>
-        <div class="nav-subtype-list">
-          ${category.subtypeWidgets.map((subtype, subtypeIndex) => `
-            <button type="button" class="nav-button nav-button-light" data-nav-action="zoom-subtype" data-category-index="${categoryIndex}" data-subtype-index="${subtypeIndex}">
-              ${escapeHtml(subtype.name)}
+  box.innerHTML = state.navigation.map((category, categoryIndex) => {
+    const baseColor = normalizeHexColor(category.baseColor || category.color || FALLBACK_CATEGORY_COLOR);
+    const brightness = Number.isFinite(Number(category.brightness)) ? Number(category.brightness) : getBrightnessPercent(baseColor);
+
+    return `
+      <details class="nav-section" ${categoryIndex === 0 ? "open" : ""}>
+        <summary>${escapeHtml(category.name)}</summary>
+        <div class="nav-section-body">
+          <label class="nav-color-row">
+            <span>Цвет</span>
+            <input type="color" class="nav-color-input" data-nav-action="color" data-category-index="${categoryIndex}" value="${escapeHtml(baseColor)}" />
+          </label>
+          <label class="nav-brightness-row">
+            <span>Яркость</span>
+            <input type="range" min="0" max="100" step="1" class="nav-brightness-input" data-nav-action="brightness" data-category-index="${categoryIndex}" value="${brightness}" />
+            <strong>${brightness}%</strong>
+          </label>
+          <div class="nav-zoom-row">
+            <button type="button" class="nav-button nav-button-light" data-nav-action="zoom-outline-category" data-category-index="${categoryIndex}">
+              Оглавление
             </button>
-          `).join("")}
+            <button type="button" class="nav-button" data-nav-action="zoom-category" data-category-index="${categoryIndex}">
+              Колонка
+            </button>
+          </div>
+          <div class="nav-subtype-list">
+            ${category.subtypeWidgets.map((subtype, subtypeIndex) => `
+              <div class="nav-subtype-row">
+                <button type="button" class="nav-button nav-button-light" data-nav-action="zoom-outline-subtype" data-category-index="${categoryIndex}" data-subtype-index="${subtypeIndex}">
+                  ${escapeHtml(subtype.name)}
+                </button>
+                <button type="button" class="nav-button" data-nav-action="zoom-subtype" data-category-index="${categoryIndex}" data-subtype-index="${subtypeIndex}">
+                  ${escapeHtml(subtype.name)}
+                </button>
+              </div>
+            `).join("")}
+          </div>
         </div>
-      </div>
-    </details>
-  `).join("");
+      </details>
+    `;
+  }).join("");
 }
 
 async function zoomToNavigationWidget(widget) {
@@ -1889,6 +1937,86 @@ async function zoomToNavigationWidget(widget) {
     console.warn("[Reference Board Builder] zoomTo failed", error);
     await notifyError("Не удалось приблизить элемент", error);
   }
+}
+
+function normalizeHexColor(value, fallback = FALLBACK_CATEGORY_COLOR) {
+  const raw = String(value || "").trim();
+  if (/^#[0-9a-f]{6}$/i.test(raw)) return raw.toUpperCase();
+  if (/^#[0-9a-f]{3}$/i.test(raw)) {
+    return `#${raw[1]}${raw[1]}${raw[2]}${raw[2]}${raw[3]}${raw[3]}`.toUpperCase();
+  }
+  return fallback;
+}
+
+function hexToRgb(hex) {
+  const safe = normalizeHexColor(hex);
+  return {
+    r: Number.parseInt(safe.slice(1, 3), 16),
+    g: Number.parseInt(safe.slice(3, 5), 16),
+    b: Number.parseInt(safe.slice(5, 7), 16),
+  };
+}
+
+function rgbToHex({ r, g, b }) {
+  const toPart = (value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0");
+  return `#${toPart(r)}${toPart(g)}${toPart(b)}`.toUpperCase();
+}
+
+function rgbToHsv({ r, g, b }) {
+  const rr = r / 255;
+  const gg = g / 255;
+  const bb = b / 255;
+  const max = Math.max(rr, gg, bb);
+  const min = Math.min(rr, gg, bb);
+  const delta = max - min;
+  let h = 0;
+
+  if (delta !== 0) {
+    if (max === rr) h = ((gg - bb) / delta) % 6;
+    else if (max === gg) h = (bb - rr) / delta + 2;
+    else h = (rr - gg) / delta + 4;
+    h *= 60;
+    if (h < 0) h += 360;
+  }
+
+  return {
+    h,
+    s: max === 0 ? 0 : delta / max,
+    v: max,
+  };
+}
+
+function hsvToRgb({ h, s, v }) {
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = v - c;
+  let rr = 0;
+  let gg = 0;
+  let bb = 0;
+
+  if (h >= 0 && h < 60) [rr, gg, bb] = [c, x, 0];
+  else if (h < 120) [rr, gg, bb] = [x, c, 0];
+  else if (h < 180) [rr, gg, bb] = [0, c, x];
+  else if (h < 240) [rr, gg, bb] = [0, x, c];
+  else if (h < 300) [rr, gg, bb] = [x, 0, c];
+  else [rr, gg, bb] = [c, 0, x];
+
+  return {
+    r: (rr + m) * 255,
+    g: (gg + m) * 255,
+    b: (bb + m) * 255,
+  };
+}
+
+function getBrightnessPercent(hex) {
+  const hsv = rgbToHsv(hexToRgb(hex));
+  return Math.max(0, Math.min(100, Math.round(hsv.v * 100)));
+}
+
+function applyBrightnessToColor(hex, brightnessPercent) {
+  const hsv = rgbToHsv(hexToRgb(hex));
+  const v = Math.max(0, Math.min(100, Number(brightnessPercent))) / 100;
+  return rgbToHex(hsvToRgb({ h: hsv.h, s: hsv.s, v }));
 }
 
 async function setWidgetFillColor(widget, color) {
@@ -1917,11 +2045,18 @@ async function setWidgetFillColor(widget, color) {
   return false;
 }
 
-async function applyNavigationCategoryColor(categoryIndex, color) {
+async function applyNavigationCategoryAppearance(categoryIndex) {
   const category = getNavigationCategory(categoryIndex);
   if (!category) return;
 
+  const baseColor = normalizeHexColor(category.baseColor || category.color || FALLBACK_CATEGORY_COLOR);
+  const brightness = Number.isFinite(Number(category.brightness)) ? Number(category.brightness) : getBrightnessPercent(baseColor);
+  const color = applyBrightnessToColor(baseColor, brightness);
+
+  category.baseColor = baseColor;
+  category.brightness = brightness;
   category.color = color;
+
   const widgets = [
     category.headerWidget,
     ...category.subtypeWidgets.map((subtype) => subtype.widget),
@@ -1929,6 +2064,7 @@ async function applyNavigationCategoryColor(categoryIndex, color) {
   ].filter(Boolean);
 
   await Promise.all(widgets.map((widget) => setWidgetFillColor(widget, color)));
+  renderNavigationPanel();
 }
 
 function initNavigationPanel() {
@@ -1942,9 +2078,21 @@ function initNavigationPanel() {
     if (!button || button.tagName === "INPUT") return;
 
     const action = button.dataset.navAction;
+    if (action === "zoom-outline-category") {
+      const category = getNavigationCategory(button.dataset.categoryIndex);
+      await zoomToNavigationWidget(category?.outlineHeaderWidget);
+      return;
+    }
+
     if (action === "zoom-category") {
       const category = getNavigationCategory(button.dataset.categoryIndex);
       await zoomToNavigationWidget(category?.headerWidget);
+      return;
+    }
+
+    if (action === "zoom-outline-subtype") {
+      const subtype = getNavigationOutlineSubtype(button.dataset.categoryIndex, button.dataset.subtypeIndex);
+      await zoomToNavigationWidget(subtype?.widget);
       return;
     }
 
@@ -1955,9 +2103,22 @@ function initNavigationPanel() {
   });
 
   box.addEventListener("input", async (event) => {
-    const input = event.target.closest("input[data-nav-action='color']");
+    const input = event.target.closest("input[data-nav-action]");
     if (!input) return;
-    await applyNavigationCategoryColor(input.dataset.categoryIndex, input.value);
+
+    const category = getNavigationCategory(input.dataset.categoryIndex);
+    if (!category) return;
+
+    if (input.dataset.navAction === "color") {
+      category.baseColor = normalizeHexColor(input.value);
+      category.brightness = getBrightnessPercent(category.baseColor);
+    }
+
+    if (input.dataset.navAction === "brightness") {
+      category.brightness = Math.max(0, Math.min(100, Number(input.value) || 0));
+    }
+
+    await applyNavigationCategoryAppearance(input.dataset.categoryIndex);
   });
 }
 

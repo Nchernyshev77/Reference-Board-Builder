@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reference Board Builder_14</title>
+  <title>Reference Board Builder_15</title>
   <script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
   <script src="app.js" defer></script>
   <style>
@@ -13,8 +13,10 @@
     }
     html,
     body {
-      height: 100%;
-      overflow: hidden;
+      min-height: 100%;
+      height: auto;
+      overflow-y: auto;
+      overflow-x: hidden;
     }
     * { box-sizing: border-box; }
     body {
@@ -23,12 +25,14 @@
       font-size: 13px;
       color: #111827;
       background: #f9fafb;
-    }
-    .app-shell {
-      height: 100vh;
       overflow-y: auto;
       overflow-x: hidden;
-      padding: 10px;
+    }
+    .app-shell {
+      min-height: 100vh;
+      height: auto;
+      overflow: visible;
+      padding: 10px 10px 60px;
       -webkit-overflow-scrolling: touch;
     }
     .app-header { margin-bottom: 8px; }
@@ -322,12 +326,34 @@
       flex-direction: column;
       gap: 6px;
     }
-    .nav-color-row {
+    .nav-color-row,
+    .nav-brightness-row {
       display: grid;
-      grid-template-columns: 48px 1fr;
+      grid-template-columns: 58px 1fr auto;
       align-items: center;
       gap: 8px;
       margin-bottom: 2px;
+      font-size: 12px;
+    }
+    .nav-color-row {
+      grid-template-columns: 58px 1fr;
+    }
+    .nav-color-input {
+      width: 100%;
+      min-height: 28px;
+      padding: 0;
+      border: 1px solid rgba(15, 23, 42, 0.16);
+      border-radius: 7px;
+      background: #ffffff;
+    }
+    .nav-brightness-input {
+      width: 100%;
+    }
+    .nav-zoom-row,
+    .nav-subtype-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
     }
     .nav-button {
       width: 100%;
@@ -355,7 +381,7 @@
 <body>
   <div class="app-shell">
   <div class="app-header">
-    <h1 class="app-title">Reference Board Builder_14</h1>
+    <h1 class="app-title">Reference Board Builder_15</h1>
   </div>
 
   <div class="tabs">
@@ -461,7 +487,7 @@
               </div>
               <div class="subfield">
                 <label for="columnGap">Между колонками</label>
-                <input id="columnGap" type="number" step="1" value="13000" />
+                <input id="columnGap" type="number" step="1" value="180000" />
               </div>
               <div class="subfield">
                 <label for="headerToFramesGap">До фреймов</label>
@@ -512,7 +538,7 @@
                 <input id="outlineSubtypeGapY" type="number" step="1" value="350" />
               </div>
               <div class="subfield">
-                <label for="outlineSectionGapY">Шаг разделов</label>
+                <label for="outlineSectionGapY">Шаг разделов вправо</label>
                 <input id="outlineSectionGapY" type="number" step="1" value="1500" />
               </div>
             </div>
