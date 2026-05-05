@@ -1,4 +1,4 @@
-// Reference Board Builder_15
+// Reference Board Builder_16
 // Stages A-D:
 // - read folder tree
 // - analyze structure
@@ -13,7 +13,7 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
-const APP_VERSION = "Reference Board Builder_15";
+const APP_VERSION = "Reference Board Builder_16";
 const APP_META_ID = "reference-board-builder";
 const FRAME_VERTICAL_GAP = 1200;
 const COLUMN_HEADER_FILL = "#f4d44d";
@@ -153,6 +153,11 @@ function compareOrderedEntries(a, b) {
 
 function getCategoryDefaultColor(index) {
   return DEFAULT_CATEGORY_COLORS[index] || FALLBACK_CATEGORY_COLOR;
+}
+
+function getDefaultCategoryBrightness(index, color) {
+  if (index === 0) return 100;
+  return getBrightnessPercent(color || getCategoryDefaultColor(index));
 }
 
 function formatNumber(value) {
@@ -321,7 +326,7 @@ function readConfig() {
     imageGap: getNumber("imageGap", 25),
     groupGap: getNumber("groupGap", 300),
     innerPadding: getNumber("innerPadding", 120),
-    columnGap: getNumber("columnGap", 180000),
+    columnGap: getNumber("columnGap", 18000),
     headerToFramesGap: getNumber("headerToFramesGap", 4000),
     outlineOffsetX: getNumber("outlineOffsetX", OUTLINE_HEADER_OFFSET_X),
     outlineOffsetY: getNumber("outlineOffsetY", OUTLINE_HEADER_OFFSET_Y),
@@ -637,7 +642,7 @@ function readConfig() {
     imageGap: getNumber("imageGap", 25),
     groupGap: getNumber("groupGap", 300),
     innerPadding: getNumber("innerPadding", 120),
-    columnGap: getNumber("columnGap", 180000),
+    columnGap: getNumber("columnGap", 18000),
     headerToFramesGap: getNumber("headerToFramesGap", 4000),
     outlineOffsetX: getNumber("outlineOffsetX", OUTLINE_HEADER_OFFSET_X),
     outlineOffsetY: getNumber("outlineOffsetY", OUTLINE_HEADER_OFFSET_Y),
@@ -691,75 +696,109 @@ function parseReferenceTree(files) {
       continue;
     }
 
-    if (!rootName) rootName = parts[0];
+    if (!rootName) rootName = sanitizeDisplayName(parts[0]);
     const dirs = parts.slice(1, -1);
     if (dirs.length < 2) {
       skipped.push({ fileName: relPath, reason: "path-must-have-category-and-subtype" });
       continue;
     }
 
-    const categoryName = dirs[0];
-    const subtypeName = dirs[1];
-    const colorName = dirs.length >= 3 ? dirs.slice(2).join(" / ") : null;
+    if (dirs.some(isIgnoredImageFolderName)) {
+      skipped.push({ fileName: relPath, reason: "ignored-image-folder" });
+      continue;
+    }
 
-    let category = categoryMap.get(categoryName);
+    const rawCategoryName = dirs[0];
+    const rawSubtypeName = dirs[1];
+    const rawColorName = dirs.length >= 3 ? dirs.slice(2).join(" / ") : null;
+
+    const categoryMeta = parseOrderedPart(rawCategoryName);
+    const subtypeMeta = parseOrderedPart(rawSubtypeName);
+    const colorMeta = rawColorName
+      ? {
+          ...parseOrderedPart(rawColorName.split("/")[0]),
+          displayName: sanitizeHierarchicalName(rawColorName),
+        }
+      : null;
+
+    let category = categoryMap.get(rawCategoryName);
     if (!category) {
-      category = { name: categoryName, subtypesMap: new Map() };
-      categoryMap.set(categoryName, category);
+      category = {
+        rawName: rawCategoryName,
+        name: categoryMeta.displayName,
+        orderMeta: categoryMeta,
+        subtypesMap: new Map(),
+      };
+      categoryMap.set(rawCategoryName, category);
     }
 
-    let subtype = category.subtypesMap.get(subtypeName);
+    let subtype = category.subtypesMap.get(rawSubtypeName);
     if (!subtype) {
-      subtype = { name: subtypeName, groupsMap: new Map() };
-      category.subtypesMap.set(subtypeName, subtype);
+      subtype = {
+        rawName: rawSubtypeName,
+        name: subtypeMeta.displayName,
+        orderMeta: subtypeMeta,
+        groupsMap: new Map(),
+      };
+      category.subtypesMap.set(rawSubtypeName, subtype);
     }
 
-    const groupKey = colorName ? colorName : NO_COLOR_KEY;
+    const groupKey = rawColorName ? rawColorName : NO_COLOR_KEY;
     let group = subtype.groupsMap.get(groupKey);
     if (!group) {
       group = {
         key: groupKey,
-        name: colorName,
-        hasColorFolder: !!colorName,
+        rawName: rawColorName,
+        name: colorMeta ? colorMeta.displayName : null,
+        orderMeta: colorMeta,
+        hasColorFolder: !!rawColorName,
         images: [],
       };
       subtype.groupsMap.set(groupKey, group);
     }
 
+    const cleanImageName = sanitizeDisplayName(file.name || "image");
     group.images.push({
       file,
-      name: file.name || "image",
+      name: cleanImageName,
+      title: cleanImageName,
       relativePath: relPath,
       rootName,
-      categoryName,
-      subtypeName,
-      colorName,
+      categoryName: category.name,
+      subtypeName: subtype.name,
+      colorName: group.name,
     });
     imageCount += 1;
   }
 
   const categories = Array.from(categoryMap.values())
     .map((category) => ({
+      rawName: category.rawName,
       name: category.name,
+      orderMeta: category.orderMeta,
       subtypes: Array.from(category.subtypesMap.values())
         .map((subtype) => ({
+          rawName: subtype.rawName,
           name: subtype.name,
+          orderMeta: subtype.orderMeta,
           groups: Array.from(subtype.groupsMap.values())
             .map((group) => ({
               key: group.key,
+              rawName: group.rawName,
               name: group.name,
+              orderMeta: group.orderMeta,
               hasColorFolder: group.hasColorFolder,
               images: group.images.sort((a, b) => byName(a, b)),
             }))
             .sort((a, b) => {
               if (a.hasColorFolder && !b.hasColorFolder) return -1;
               if (!a.hasColorFolder && b.hasColorFolder) return 1;
-              return byName(a, b);
+              return compareOrderedEntries(a, b);
             }),
         }))
-        .sort(byName),
+        .sort(compareOrderedEntries),
     }))
-    .sort(byName);
+    .sort(compareOrderedEntries);
 
   const summary = {
     categories: categories.length,
@@ -1179,12 +1218,15 @@ function buildScene(layout, viewport) {
   const centerX = viewport.x + viewport.width / 2;
   const centerY = viewport.y + viewport.height / 2;
   const count = layout.categories.length;
-  const firstCenterX = centerX - ((Math.max(0, count - 1) * config.columnGap) / 2);
+  const columnStep = config.frameWidth + config.columnGap;
+  const firstCenterX = centerX - ((Math.max(0, count - 1) * columnStep) / 2);
   const top = centerY - layout.summary.maxColumnHeight / 2;
 
   const categories = layout.categories.map((category, categoryIndex) => {
-    const x = firstCenterX + categoryIndex * config.columnGap;
-    const color = getCategoryDefaultColor(categoryIndex);
+    const x = firstCenterX + categoryIndex * columnStep;
+    const baseColor = getCategoryDefaultColor(categoryIndex);
+    const brightness = getDefaultCategoryBrightness(categoryIndex, baseColor);
+    const color = applyBrightnessToColor(baseColor, brightness);
     const header = {
       x,
       y: top + config.columnShapeHeight / 2,
@@ -1257,7 +1299,7 @@ function buildScene(layout, viewport) {
       return frameScene;
     });
 
-    return { name: category.name, color, header, frames };
+    return { name: category.name, color, baseColor, brightness, header, frames };
   });
 
   let outline = [];
@@ -1607,12 +1649,13 @@ async function renderScene(scene, mode) {
   };
 
   for (const category of scene.categories) {
-    const categoryColor = category.color || FALLBACK_CATEGORY_COLOR;
+    const categoryColor = normalizeHexColor(category.color || FALLBACK_CATEGORY_COLOR);
+    const categoryBaseColor = normalizeHexColor(category.baseColor || categoryColor);
     const navCategory = {
       name: category.name,
       color: categoryColor,
-      baseColor: categoryColor,
-      brightness: getBrightnessPercent(categoryColor),
+      baseColor: categoryBaseColor,
+      brightness: Number.isFinite(Number(category.brightness)) ? Number(category.brightness) : getBrightnessPercent(categoryColor),
       headerWidget: null,
       outlineHeaderWidget: null,
       subtypeWidgets: [],
@@ -1797,7 +1840,7 @@ async function renderScene(scene, mode) {
 
     for (const subtypeShape of section.subtypeShapes) {
       const subtypeOutlineWidget = await createShapeSafe({
-        shape: "round_rectangle",
+        shape: "rectangle",
         x: subtypeShape.x,
         y: subtypeShape.y,
         width: subtypeShape.width,
@@ -1883,8 +1926,7 @@ function renderNavigationPanel() {
   }
 
   box.innerHTML = state.navigation.map((category, categoryIndex) => {
-    const baseColor = normalizeHexColor(category.baseColor || category.color || FALLBACK_CATEGORY_COLOR);
-    const brightness = Number.isFinite(Number(category.brightness)) ? Number(category.brightness) : getBrightnessPercent(baseColor);
+    const currentColor = normalizeHexColor(category.color || category.baseColor || FALLBACK_CATEGORY_COLOR);
 
     return `
       <details class="nav-section" ${categoryIndex === 0 ? "open" : ""}>
@@ -1892,12 +1934,7 @@ function renderNavigationPanel() {
         <div class="nav-section-body">
           <label class="nav-color-row">
             <span>Цвет</span>
-            <input type="color" class="nav-color-input" data-nav-action="color" data-category-index="${categoryIndex}" value="${escapeHtml(baseColor)}" />
-          </label>
-          <label class="nav-brightness-row">
-            <span>Яркость</span>
-            <input type="range" min="0" max="100" step="1" class="nav-brightness-input" data-nav-action="brightness" data-category-index="${categoryIndex}" value="${brightness}" />
-            <strong>${brightness}%</strong>
+            <input type="color" class="nav-color-input" data-nav-action="color" data-category-index="${categoryIndex}" value="${escapeHtml(currentColor)}" />
           </label>
           <div class="nav-zoom-row">
             <button type="button" class="nav-button nav-button-light" data-nav-action="zoom-outline-category" data-category-index="${categoryIndex}">
@@ -2049,13 +2086,10 @@ async function applyNavigationCategoryAppearance(categoryIndex) {
   const category = getNavigationCategory(categoryIndex);
   if (!category) return;
 
-  const baseColor = normalizeHexColor(category.baseColor || category.color || FALLBACK_CATEGORY_COLOR);
-  const brightness = Number.isFinite(Number(category.brightness)) ? Number(category.brightness) : getBrightnessPercent(baseColor);
-  const color = applyBrightnessToColor(baseColor, brightness);
-
-  category.baseColor = baseColor;
-  category.brightness = brightness;
+  const color = normalizeHexColor(category.color || category.baseColor || FALLBACK_CATEGORY_COLOR);
   category.color = color;
+  category.baseColor = color;
+  category.brightness = getBrightnessPercent(color);
 
   const widgets = [
     category.headerWidget,
@@ -2064,7 +2098,6 @@ async function applyNavigationCategoryAppearance(categoryIndex) {
   ].filter(Boolean);
 
   await Promise.all(widgets.map((widget) => setWidgetFillColor(widget, color)));
-  renderNavigationPanel();
 }
 
 function initNavigationPanel() {
@@ -2110,15 +2143,11 @@ function initNavigationPanel() {
     if (!category) return;
 
     if (input.dataset.navAction === "color") {
-      category.baseColor = normalizeHexColor(input.value);
-      category.brightness = getBrightnessPercent(category.baseColor);
+      category.color = normalizeHexColor(input.value);
+      category.baseColor = category.color;
+      category.brightness = getBrightnessPercent(category.color);
+      await applyNavigationCategoryAppearance(input.dataset.categoryIndex);
     }
-
-    if (input.dataset.navAction === "brightness") {
-      category.brightness = Math.max(0, Math.min(100, Number(input.value) || 0));
-    }
-
-    await applyNavigationCategoryAppearance(input.dataset.categoryIndex);
   });
 }
 
