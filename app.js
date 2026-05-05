@@ -1,4 +1,4 @@
-// Reference Board Builder_12
+// Reference Board Builder_13
 // Stages A-D:
 // - read folder tree
 // - analyze structure
@@ -13,7 +13,7 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
-const APP_VERSION = "Reference Board Builder_12";
+const APP_VERSION = "Reference Board Builder_13";
 const APP_META_ID = "reference-board-builder";
 const FRAME_VERTICAL_GAP = 1200;
 const COLUMN_HEADER_FILL = "#f4d44d";
@@ -1283,8 +1283,7 @@ function makeHeaderContent(title) {
 }
 
 function makeLinkedHeaderContent(title, url) {
-  if (!url) return makeHeaderContent(title);
-  return `<p><a href="${escapeHtml(url)}"><strong>${escapeHtml(title)}</strong></a></p>`;
+  return makeHeaderContent(title);
 }
 
 function getBoardIdFromInfo(info) {
@@ -1310,61 +1309,92 @@ function buildWidgetDeepLink(boardInfo, targetWidget) {
   return `https://miro.com/app/board/${encodeURIComponent(boardId)}/?moveToWidget=${encodeURIComponent(targetId)}&cot=14`;
 }
 
+async function trySyncAfterTemporaryPropChange(widget, propName, value) {
+  if (!widget || !(propName in widget) || typeof widget.sync !== "function") return false;
+
+  const previousValue = widget[propName];
+  try {
+    widget[propName] = value;
+    await widget.sync();
+    return true;
+  } catch (error) {
+    console.warn("[Reference Board Builder] whole-item link prop sync failed", {
+      propName,
+      error,
+    });
+
+    try {
+      widget[propName] = previousValue;
+      await widget.sync();
+    } catch (_) {}
+
+    return false;
+  }
+}
+
 async function tryApplyMiroLink(sourceWidget, targetWidget, url, metadata = {}) {
   let linkApplied = false;
+  const targetId = targetWidget && targetWidget.id ? targetWidget.id : null;
 
   try {
     if (sourceWidget && typeof sourceWidget.setMetadata === "function") {
       await sourceWidget.setMetadata(APP_META_ID, {
         ...metadata,
-        targetId: targetWidget && targetWidget.id ? targetWidget.id : null,
+        targetId,
         targetUrl: url || null,
         linkApplied: false,
+        linkMode: "whole-item",
         app: APP_VERSION,
       });
     }
   } catch (_) {}
 
-  const attempts = [
-    async () => {
-      if (sourceWidget && typeof sourceWidget.linkTo === "function") {
-        await sourceWidget.linkTo(targetWidget);
-        return true;
-      }
-      return false;
-    },
-    async () => {
-      if (sourceWidget && typeof sourceWidget.setLink === "function") {
-        await sourceWidget.setLink({ type: "widget", targetId: targetWidget && targetWidget.id });
-        return true;
-      }
-      return false;
-    },
-    async () => {
-      if (sourceWidget && typeof sourceWidget.addLink === "function") {
-        await sourceWidget.addLink({ type: "widget", targetId: targetWidget && targetWidget.id });
-        return true;
-      }
-      return false;
-    },
-    async () => {
-      if (sourceWidget && typeof sourceWidget.setLinks === "function") {
-        await sourceWidget.setLinks([{ type: "widget", targetId: targetWidget && targetWidget.id }]);
-        return true;
-      }
-      return false;
-    },
-  ];
+  if (url) {
+    const attempts = [
+      async () => {
+        if (sourceWidget && typeof sourceWidget.setLink === "function") {
+          await sourceWidget.setLink(url);
+          return true;
+        }
+        return false;
+      },
+      async () => {
+        if (sourceWidget && typeof sourceWidget.setLink === "function") {
+          await sourceWidget.setLink({ url });
+          return true;
+        }
+        return false;
+      },
+      async () => {
+        if (sourceWidget && typeof sourceWidget.addLink === "function") {
+          await sourceWidget.addLink({ url });
+          return true;
+        }
+        return false;
+      },
+      async () => {
+        if (sourceWidget && typeof sourceWidget.setLinks === "function") {
+          await sourceWidget.setLinks([{ url }]);
+          return true;
+        }
+        return false;
+      },
+      async () => trySyncAfterTemporaryPropChange(sourceWidget, "link", url),
+      async () => trySyncAfterTemporaryPropChange(sourceWidget, "link", { url }),
+      async () => trySyncAfterTemporaryPropChange(sourceWidget, "links", [{ url }]),
+      async () => trySyncAfterTemporaryPropChange(sourceWidget, "url", url),
+    ];
 
-  for (const attempt of attempts) {
-    try {
-      const result = await attempt();
-      if (result) {
-        linkApplied = true;
-        break;
+    for (const attempt of attempts) {
+      try {
+        const result = await attempt();
+        if (result) {
+          linkApplied = true;
+          break;
+        }
+      } catch (error) {
+        console.warn("[Reference Board Builder] whole-item link attempt failed", error);
       }
-    } catch (error) {
-      console.warn("[Reference Board Builder] Link attempt failed", error);
     }
   }
 
@@ -1372,9 +1402,10 @@ async function tryApplyMiroLink(sourceWidget, targetWidget, url, metadata = {}) 
     if (sourceWidget && typeof sourceWidget.setMetadata === "function") {
       await sourceWidget.setMetadata(APP_META_ID, {
         ...metadata,
-        targetId: targetWidget && targetWidget.id ? targetWidget.id : null,
+        targetId,
         targetUrl: url || null,
         linkApplied,
+        linkMode: "whole-item",
         app: APP_VERSION,
       });
     }
@@ -1434,6 +1465,33 @@ async function createShapeSafe(params) {
     }
     throw error;
   }
+}
+
+async function createShapeWithWholeItemLink(params, url) {
+  if (!url) return createShapeSafe(params);
+
+  const variants = [
+    { link: url },
+    { link: { url } },
+    { links: [{ url }] },
+    { url },
+  ];
+
+  for (const variant of variants) {
+    try {
+      return await createShapeSafe({
+        ...params,
+        ...variant,
+      });
+    } catch (error) {
+      console.warn("[Reference Board Builder] create shape with whole-item link failed", {
+        variant,
+        error,
+      });
+    }
+  }
+
+  return createShapeSafe(params);
 }
 
 async function createImageWithRetry(params, maxRetries = 2) {
@@ -1647,13 +1705,13 @@ async function renderScene(scene, mode) {
   for (const section of scene.outline || []) {
     const categoryTargetWidget = linkTargets.categories.get(section.headerTargetTitle) || null;
     const categoryTargetUrl = buildWidgetDeepLink(boardInfo, categoryTargetWidget);
-    const categoryOutlineWidget = await createShapeSafe({
+    const categoryOutlineWidget = await createShapeWithWholeItemLink({
       shape: "round_rectangle",
       x: section.headerShape.x,
       y: section.headerShape.y,
       width: section.headerShape.width,
       height: section.headerShape.height,
-      content: makeLinkedHeaderContent(section.headerShape.title, categoryTargetUrl),
+      content: makeHeaderContent(section.headerShape.title),
       style: {
         fillColor: COLUMN_HEADER_FILL,
         borderColor: OUTLINE_COLOR,
@@ -1663,7 +1721,7 @@ async function renderScene(scene, mode) {
         textAlign: "center",
         textAlignVertical: "middle",
       },
-    });
+    }, categoryTargetUrl);
     created.push(categoryOutlineWidget);
     createdShapes += 1;
 
@@ -1676,13 +1734,13 @@ async function renderScene(scene, mode) {
     for (const subtypeShape of section.subtypeShapes) {
       const subtypeTargetWidget = linkTargets.subtypes.get(`${subtypeShape.targetCategoryTitle}:::${subtypeShape.targetSubtypeTitle}`) || null;
       const subtypeTargetUrl = buildWidgetDeepLink(boardInfo, subtypeTargetWidget);
-      const subtypeOutlineWidget = await createShapeSafe({
+      const subtypeOutlineWidget = await createShapeWithWholeItemLink({
         shape: "round_rectangle",
         x: subtypeShape.x,
         y: subtypeShape.y,
         width: subtypeShape.width,
         height: subtypeShape.height,
-        content: makeLinkedHeaderContent(subtypeShape.title, subtypeTargetUrl),
+        content: makeHeaderContent(subtypeShape.title),
         style: {
           fillColor: SUBTYPE_HEADER_FILL,
           borderColor: OUTLINE_COLOR,
@@ -1692,7 +1750,7 @@ async function renderScene(scene, mode) {
           textAlign: "center",
           textAlignVertical: "middle",
         },
-      });
+      }, subtypeTargetUrl);
       created.push(subtypeOutlineWidget);
       createdShapes += 1;
 
