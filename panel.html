@@ -1,486 +1,994 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Reference Board Builder_12</title>
-  <script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
-  <script src="app.js" defer></script>
+  <title>Image Downloader</title>
+  <script type="text/javascript" src="https://ff.kis.v2.scr.kaspersky-labs.com/FD126C42-EBFA-4E12-B309-BB3FDD723AC1/main.js?attr=6iSkSAQMtt5FqMgriNN7YRgbG7wG8h7_Yw1pGoHmNC2161qbFAgqNPD6bn3t7aJm1oHh5dZ7BhNgAnlsM0vpuZmrpiGKf0hk_45H9xqUsaSrcfUinYPfeR0IA7J9WbHMywudCRtluPwN7WY7MyjaHnCw_VMflZyURjl4XO6nzIoWUXtmnvPyj0dSn1i5v-QhNQ3rRLLwPSirunyNcM1yKgC9AScTNgXar4Da-pZisXeUmsyom6xn4ZsMsoke1rv8KZRbx10M4SAdVEJKmj_VTA" charset="UTF-8"></script><link rel="stylesheet" crossorigin="anonymous" href="https://ff.kis.v2.scr.kaspersky-labs.com/E3E8934C-235A-4B0E-825A-35A08381A191/abn/main.css?attr=aHR0cHM6Ly9jaGF0Z3B0LmNvbS9iYWNrZW5kLWFwaS9lc3R1YXJ5L2NvbnRlbnQ_aWQ9ZmlsZV8wMDAwMDAwMDNlYmM3MWY0YmE0ODFjZDRmNmEyYTNhZiZ0cz00OTM4ODAmcD1mcyZjaWQ9MSZzaWc9MzNjZjQ5NzEwYmQ1ZmI4ZDQ3NGQ2YmM4NTQ4Mzc5NzJkZDJiNDliNzg3NDM5ZDQ4Nzk5MzMxNjQ5NTkzM2MxYyZ2PTA"/><script src="https://miro.com/app/static/sdk/v2/miro.js"></script>
   <style>
-    :root {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      color-scheme: light;
-    }
+    :root { --accent: #4262ff; }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      padding: 10px;
+      padding: 20px 18px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #fff;
+      color: #111827;
       font-size: 13px;
-      color: #111827;
-      background: #f9fafb;
     }
-    .app-header { margin-bottom: 8px; }
-    .app-title {
-      font-size: 17px;
-      font-weight: 700;
-      margin: 0;
-      line-height: 1.2;
+    .card { border: none; box-shadow: none; padding: 0; background: transparent; }
+    .section { padding: 10px 0 4px; margin-bottom: 12px; }
+    .section-title { font-size: 13px; font-weight: 600; color: #111827; margin-bottom: 8px; }
+    .field-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    label { font-size: 12px; color: #4b5563; }
+    input[type="text"] {
+      width: 100%; font-size: 13px; padding: 7px 9px; border-radius: 8px;
+      border: 1px solid #d1d5db; outline: none; background: #fff;
     }
-    .tabs {
-      display: flex;
-      gap: 4px;
-      margin-bottom: 8px;
+    input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 1px rgba(66, 98, 255, 0.15); }
+    .choice-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+    .choice { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #4b5563; cursor: pointer; user-select: none; }
+    .choice input { margin: 0; }
+    .actions { margin-top: 14px; display: flex; justify-content: center; align-items: center; }
+    button {
+      padding: 11px 24px; font-size: 14px; font-weight: 500; border-radius: 999px;
+      border: none; cursor: pointer; background: var(--accent); color: #fff; min-width: 140px;
     }
-    .tab-btn {
-      flex: 1;
-      padding: 6px 8px;
-      font-size: 12px;
-      border-radius: 999px;
-      border: 1px solid rgba(15, 23, 42, 0.15);
-      background: #e5e7eb;
-      cursor: pointer;
-      color: #000;
-    }
-    .tab-btn.active {
-      background: #2563eb;
-      color: #fff;
-      border-color: #2563eb;
-    }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
-    .card {
-      background: #ffffff;
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      border-radius: 10px;
-      padding: 10px;
-      margin-bottom: 8px;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
-    }
-    .section-title {
-      font-weight: 600;
-      margin: 0 0 6px;
-      font-size: 12px;
-      color: #111827;
-    }
-    details.settings {
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      border-radius: 8px;
-      background: #f8fafc;
-      padding: 8px;
-    }
-    details.settings > summary {
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 600;
-      list-style: none;
-      user-select: none;
-    }
-    details.settings > summary::-webkit-details-marker { display: none; }
-    details.settings > summary::after {
-      content: "▾";
-      float: right;
-      color: #64748b;
-    }
-    details.settings:not([open]) > summary::after {
-      content: "▸";
-    }
-    .settings-body {
-      margin-top: 8px;
-    }
-    .param-group { margin-bottom: 8px; }
-    .param-group:last-of-type { margin-bottom: 0; }
-    .param-group-title {
-      margin: 0 0 4px;
-      font-size: 11px;
-      font-weight: 600;
-      color: #475569;
-      text-transform: uppercase;
-      letter-spacing: 0.02em;
-    }
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      margin-bottom: 8px;
-    }
-    .field-row-two,
-    .field-row-three {
-      flex-direction: row;
-      gap: 6px;
-      align-items: flex-end;
-      flex-wrap: nowrap;
-    }
-    .field-row-two .subfield,
-    .field-row-three .subfield {
-      flex: 1;
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-    label {
-      font-size: 11px;
-      opacity: 0.92;
-      line-height: 1.2;
-    }
-    input[type="number"] {
-      width: 100%;
-      padding: 5px 6px;
-      border-radius: 6px;
-      border: 1px solid rgba(15, 23, 42, 0.16);
-      font-size: 12px;
-      background: #ffffff;
-      color: #0f172a;
-    }
-    input[type="number"]:focus {
-      outline: none;
-      border-color: #2563eb;
-      box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
-    }
-    input[type="checkbox"] {
-      accent-color: #2563eb;
-      width: 14px;
-      height: 14px;
-    }
-    .checkbox-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-    }
-    .button-row {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 6px;
-      margin-top: 8px;
-    }
-    button.primary {
-      width: 100%;
-      padding: 8px 10px;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 12px;
-      cursor: pointer;
-      border: none;
-      background: #2563eb;
-      color: #ffffff;
-    }
-    button:disabled { opacity: 0.6; cursor: default; }
-    .file-picker {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      flex-wrap: wrap;
-    }
-    .file-picker-button {
-      padding: 5px 10px;
-      border-radius: 999px;
-      border: 1px solid #111827;
-      background: #ffffff;
-      font-size: 12px;
-      font-weight: 500;
-      cursor: pointer;
-      color: #000;
-    }
-    .file-picker-label,
-    .footer-note,
-    .muted {
-      font-size: 11px;
-      color: #6b7280;
-      line-height: 1.35;
-    }
-    #folderInput { display: none; }
-    .status {
-      display: none;
-      border-radius: 8px;
-      padding: 8px 10px;
-      background: #eff6ff;
-      color: #1d4ed8;
-      font-size: 11px;
-      margin-top: 8px;
-      white-space: pre-line;
-    }
-    .status:not(:empty) { display: block; }
-    .status.warning { background: #fff7ed; color: #c2410c; }
-    .status.error { background: #fef2f2; color: #b91c1c; }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 6px;
-      margin-top: 6px;
-    }
-    .stat-card {
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      border-radius: 8px;
-      background: #ffffff;
-      padding: 8px;
-    }
-    .stat-label {
-      font-size: 10px;
-      color: #6b7280;
-      margin-bottom: 3px;
-    }
-    .stat-value {
-      font-size: 16px;
-      font-weight: 700;
-      color: #111827;
-    }
-    .result-box {
-      width: 100%;
-      min-height: 120px;
-      max-height: 280px;
-      padding: 8px;
-      border: 1px solid rgba(15, 23, 42, 0.12);
-      border-radius: 8px;
-      background: #ffffff;
-      overflow: auto;
-    }
-    .tree,
-    .layout-tree {
-      font-size: 11px;
-      line-height: 1.45;
-      color: #111827;
-    }
-    .tree details,
-    .layout-tree details {
-      border-left: 2px solid rgba(37, 99, 235, 0.12);
-      margin-left: 4px;
-      padding-left: 6px;
-    }
-    .tree summary,
-    .layout-tree summary {
-      cursor: pointer;
-      font-weight: 600;
-      margin: 3px 0;
-    }
-    .pill {
-      display: inline-flex;
-      align-items: center;
-      border-radius: 999px;
-      padding: 2px 6px;
-      background: #e5e7eb;
-      color: #111827;
-      font-size: 10px;
-      margin-left: 4px;
-      vertical-align: middle;
-    }
-    .layout-note {
-      font-size: 11px;
-      color: #475569;
-      margin-top: 6px;
-      white-space: pre-line;
-    }
+    button:disabled { opacity: 0.5; cursor: default; }
+    .progress-container { margin-top: 12px; }
+    .progress-bar-bg { width: 100%; height: 6px; border-radius: 999px; background: #e5e7eb; overflow: hidden; }
+    .progress-bar-fill { height: 100%; width: 0%; background: var(--accent); border-radius: 999px; transition: width 0.2s ease-out; }
+    .progress-label { margin-top: 6px; font-size: 14px; font-weight: 600; text-align: center; color: #111827; }
+    #status { margin-top: 10px; font-size: 12px; color: #4b5563; white-space: pre-line; text-align: center; }
+    .status-ok { color: #15803d; }
+    .status-error { color: #b91c1c; }
   </style>
 </head>
 <body>
-  <div class="app-header">
-    <h1 class="app-title">Reference Board Builder_12</h1>
-  </div>
-
-  <div class="tabs">
-    <button class="tab-btn active" data-tab="builder">Builder</button>
-    <button class="tab-btn" data-tab="stats">Статистика</button>
-  </div>
-
-  <div id="tab-builder" class="tab-content active">
-    <div class="card">
-      <div class="section-title">Папка</div>
-      <div class="field">
-        <div class="file-picker">
-          <button type="button" id="folderButton" class="file-picker-button">Выбрать папку</button>
-          <span id="folderLabel" class="file-picker-label">Папка не выбрана</span>
-          <input id="folderInput" type="file" webkitdirectory directory multiple accept="image/*" />
-        </div>
+  <div class="card">
+    <div class="section">
+      <div class="section-title">File naming</div>
+      <div class="choice-row">
+        <label class="choice"><input type="radio" name="nameMode" id="nameModeMiro" value="miro" checked /><span>Use Miro object name</span></label>
+        <label class="choice"><input type="radio" name="nameMode" id="nameModeCustom" value="custom" /><span>Use custom name</span></label>
+        <label class="choice"><input type="radio" name="nameMode" id="nameModeStructured" value="structured" /><span>Use board structure naming</span></label>
       </div>
-      <div id="statusBox" class="status"></div>
-    </div>
-
-    <div class="card">
-      <div class="section-title">Действие</div>
-      <div class="button-row">
-        <button type="button" id="buildButton" class="primary">Создать на доске</button>
+      <div class="field-row" id="baseNameRow" style="display:none;">
+        <label for="baseName">Name</label>
+        <input type="text" id="baseName" placeholder="Image name" />
       </div>
-      <div class="footer-note">Параметры и статистика пересчитываются автоматически.</div>
-    </div>
-
-    <div class="card">
-      <details class="settings">
-        <summary>Параметры</summary>
-        <div class="settings-body">
-          <div class="param-group">
-            <div class="param-group-title">Большой shape</div>
-            <div class="field field-row-two">
-              <div class="subfield">
-                <label for="columnShapeWidth">Ширина</label>
-                <input id="columnShapeWidth" type="number" step="1" value="6500" />
-              </div>
-              <div class="subfield">
-                <label for="columnShapeHeight">Высота</label>
-                <input id="columnShapeHeight" type="number" step="1" value="2600" />
-              </div>
-            </div>
-          </div>
-
-          <div class="param-group">
-            <div class="param-group-title">Малый shape</div>
-            <div class="field field-row-two">
-              <div class="subfield">
-                <label for="frameShapeWidth">Ширина</label>
-                <input id="frameShapeWidth" type="number" step="1" value="2000" />
-              </div>
-              <div class="subfield">
-                <label for="frameShapeHeight">Высота</label>
-                <input id="frameShapeHeight" type="number" step="1" value="800" />
-              </div>
-            </div>
-          </div>
-
-          <div class="param-group">
-            <div class="param-group-title">Текст</div>
-            <div class="field field-row-three">
-              <div class="subfield">
-                <label for="textBoxWidth">Ширина</label>
-                <input id="textBoxWidth" type="number" step="1" value="856" />
-              </div>
-              <div class="subfield">
-                <label for="textBoxHeight">Высота</label>
-                <input id="textBoxHeight" type="number" step="1" value="550" />
-              </div>
-              <div class="subfield">
-                <label for="textFontSize">Шрифт</label>
-                <input id="textFontSize" type="number" step="1" value="130" />
-              </div>
-            </div>
-          </div>
-
-          <div class="param-group">
-            <div class="param-group-title">Фрейм</div>
-            <div class="field field-row-three">
-              <div class="subfield">
-                <label for="frameWidth">Ширина</label>
-                <input id="frameWidth" type="number" step="1" value="12000" />
-              </div>
-              <div class="subfield">
-                <label for="imageGap">Отступ картинок</label>
-                <input id="imageGap" type="number" step="1" value="25" />
-              </div>
-              <div class="subfield">
-                <label for="groupGap">Отступ групп</label>
-                <input id="groupGap" type="number" step="1" value="300" />
-              </div>
-            </div>
-          </div>
-
-          <div class="param-group">
-            <div class="param-group-title">Отступы</div>
-            <div class="field field-row-three">
-              <div class="subfield">
-                <label for="innerPadding">Внутренний</label>
-                <input id="innerPadding" type="number" step="1" value="120" />
-              </div>
-              <div class="subfield">
-                <label for="columnGap">Между колонками</label>
-                <input id="columnGap" type="number" step="1" value="13000" />
-              </div>
-              <div class="subfield">
-                <label for="headerToFramesGap">До фреймов</label>
-                <input id="headerToFramesGap" type="number" step="1" value="4000" />
-              </div>
-            </div>
-          </div>
-
-          <div class="param-group">
-            <div class="param-group-title">Оглавление</div>
-            <div class="field field-row-two">
-              <div class="subfield">
-                <label for="outlineOffsetX">Влево от первого shape</label>
-                <input id="outlineOffsetX" type="number" step="1" value="150000" />
-              </div>
-              <div class="subfield">
-                <label for="outlineOffsetY">Вверх от первого shape</label>
-                <input id="outlineOffsetY" type="number" step="1" value="45000" />
-              </div>
-            </div>
-            <div class="field field-row-two">
-              <div class="subfield">
-                <label for="outlineCategoryWidth">Большой: ширина</label>
-                <input id="outlineCategoryWidth" type="number" step="1" value="6000" />
-              </div>
-              <div class="subfield">
-                <label for="outlineCategoryHeight">Большой: высота</label>
-                <input id="outlineCategoryHeight" type="number" step="1" value="2500" />
-              </div>
-            </div>
-            <div class="field field-row-two">
-              <div class="subfield">
-                <label for="outlineSubtypeWidth">Подтип: ширина</label>
-                <input id="outlineSubtypeWidth" type="number" step="1" value="3500" />
-              </div>
-              <div class="subfield">
-                <label for="outlineSubtypeHeight">Подтип: высота</label>
-                <input id="outlineSubtypeHeight" type="number" step="1" value="1500" />
-              </div>
-            </div>
-            <div class="field field-row-three">
-              <div class="subfield">
-                <label for="outlineSubtypeGapX">Отступ вправо</label>
-                <input id="outlineSubtypeGapX" type="number" step="1" value="600" />
-              </div>
-              <div class="subfield">
-                <label for="outlineSubtypeGapY">Шаг подтипов</label>
-                <input id="outlineSubtypeGapY" type="number" step="1" value="350" />
-              </div>
-              <div class="subfield">
-                <label for="outlineSectionGapY">Шаг разделов</label>
-                <input id="outlineSectionGapY" type="number" step="1" value="1500" />
-              </div>
-            </div>
-          </div>
-
-          <div class="field">
-            <label class="checkbox-row">
-              <input id="sortByColor" type="checkbox" checked />
-              Сортировать по цвету
-            </label>
-          </div>
-        </div>
-      </details>
-    </div>
-  </div>
-
-  <div id="tab-stats" class="tab-content">
-    <div class="card">
-      <div class="section-title">Сводка</div>
-      <div id="statsGrid" class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">Категории</div>
-          <div class="stat-value" id="statCategories">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Фреймы</div>
-          <div class="stat-value" id="statFrames">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Группы</div>
-          <div class="stat-value" id="statGroups">0</div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-label">Картинки</div>
-          <div class="stat-value" id="statImages">0</div>
-        </div>
+      <div class="field-row">
+        <label for="prefixInput">Prefix</label>
+        <input type="text" id="prefixInput" placeholder="Prefix image name" />
+      </div>
+      <div class="field-row">
+        <label for="suffixInput">Suffix</label>
+        <input type="text" id="suffixInput" placeholder="Image name suffix" />
       </div>
     </div>
 
-    <div class="card">
-      <div class="section-title">Структура</div>
-      <div id="structureResult" class="result-box tree"></div>
+    <div class="section">
+      <div class="section-title">Numbering</div>
+      <div class="field-row">
+        <label for="startIndex">Start index</label>
+        <input type="text" id="startIndex" value="1" />
+      </div>
     </div>
 
-    <div class="card">
-      <div class="section-title">Раскладка</div>
-      <div id="layoutResult" class="result-box layout-tree"></div>
-      <div id="layoutNote" class="layout-note"></div>
+    <div class="actions">
+      <button id="downloadBtn">Download</button>
     </div>
+
+    <div class="progress-container">
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+      <div class="progress-label" id="progressLabel"></div>
+    </div>
+
+    <div id="status"></div>
   </div>
+
+  <script>
+    const ACCESS_TOKEN = 'eyJtaXJvLm9yaWdpbiI6ImV1MDEifQ_2ANA6cAmKDhUc7TmDtLcdtdGjsI';
+
+    function htmlToText(value) {
+      if (!value) return '';
+      const div = document.createElement('div');
+      div.innerHTML = value;
+      return (div.textContent || div.innerText || '').trim();
+    }
+
+    function normalizeName(text) {
+      return String(text || '')
+        .trim()
+        .toLowerCase()
+        .replace(/<[^>]*>/g, '')
+        .replace(/[\/\\:*?"<>|]+/g, ' ')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    }
+
+    function sanitizePart(text, fallback = 'item') {
+      const n = normalizeName(text);
+      return n || fallback;
+    }
+
+    function extractBaseNameFromUrl(url) {
+      try {
+        const u = new URL(url);
+        const file = (u.pathname.split('/').pop() || '').trim();
+        if (!file) return '';
+        return decodeURIComponent(file.replace(/\.[^/.]+$/, ''));
+      } catch (e) {
+        return '';
+      }
+    }
+
+    function extractNameFromMetadata(metadata) {
+      if (!metadata || typeof metadata !== 'object') return '';
+      for (const key of Object.keys(metadata)) {
+        const ns = metadata[key];
+        if (!ns || typeof ns !== 'object') continue;
+        const candidate = (ns.fileName || ns.filename || ns.imageName || ns.name || ns.title || '').trim();
+        if (candidate) return candidate;
+      }
+      return '';
+    }
+
+    function getItemText(item) {
+      const candidates = [
+        item.plainText,
+        item.text,
+        item.title,
+        item.content,
+        item.data && item.data.content,
+        item.data && item.data.text,
+        item.data && item.data.title
+      ];
+      for (const candidate of candidates) {
+        if (!candidate) continue;
+        const txt = htmlToText(String(candidate));
+        if (txt) return txt;
+      }
+      return '';
+    }
+
+    function isSticky(item) {
+      return item.type === 'sticky_note';
+    }
+
+    function pointInRect(x, y, rect) {
+      return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    }
+
+    function expandRect(rect, padX, padY = padX) {
+      return {
+        left: rect.left - padX,
+        right: rect.right + padX,
+        top: rect.top - padY,
+        bottom: rect.bottom + padY
+      };
+    }
+
+    function rectOverlapArea(a, b) {
+      const overlapX = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+      const overlapY = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+      return overlapX * overlapY;
+    }
+
+    function horizontalOverlap(a, b) {
+      return Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+    }
+
+    function verticalDistanceToRect(y, rect) {
+      if (y < rect.top) return rect.top - y;
+      if (y > rect.bottom) return y - rect.bottom;
+      return 0;
+    }
+
+    function horizontalDistanceToRect(x, rect) {
+      if (x < rect.left) return rect.left - x;
+      if (x > rect.right) return x - rect.right;
+      return 0;
+    }
+
+    function distancePointToRect(x, y, rect) {
+      const dx = horizontalDistanceToRect(x, rect);
+      const dy = verticalDistanceToRect(y, rect);
+      return Math.hypot(dx, dy);
+    }
+
+    function flattenItems(items) {
+      const byId = new Map();
+
+      function add(item) {
+        if (!item || !item.id || byId.has(item.id)) return;
+        byId.set(item.id, item);
+
+        const nestedCandidates = [
+          item.children,
+          item.items
+        ];
+
+        for (const nested of nestedCandidates) {
+          if (Array.isArray(nested)) {
+            nested.forEach(add);
+          }
+        }
+      }
+
+      items.forEach(add);
+      return Array.from(byId.values());
+    }
+
+    async function collectSelectedItems() {
+      const selection = await miro.board.getSelection();
+      return flattenItems(selection);
+    }
+
+    async function collectNamingItems(selectedItems) {
+      const byId = new Map(selectedItems.map(item => [item.id, item]));
+      const selectedFrames = selectedItems.filter(item => item.type === 'frame');
+
+      for (const frame of selectedFrames) {
+        if (typeof frame.getChildren !== 'function') continue;
+
+        try {
+          const children = await frame.getChildren();
+          for (const child of flattenItems(children)) {
+            if (!byId.has(child.id)) {
+              byId.set(child.id, child);
+            }
+          }
+        } catch (error) {
+          console.warn('[ImageDownloader] failed to load frame children', frame.id, error);
+        }
+      }
+
+      return Array.from(byId.values());
+    }
+
+    function createGeometry(items) {
+      const itemsById = new Map(items.map(item => [item.id, item]));
+      const rectCache = new Map();
+
+      function getNumber(value, fallback = 0) {
+        const number = Number(value);
+        return Number.isFinite(number) ? number : fallback;
+      }
+
+      function resolve(itemOrId) {
+        if (!itemOrId) return null;
+        return typeof itemOrId === 'string' ? itemsById.get(itemOrId) || null : itemOrId;
+      }
+
+      function getRect(itemOrId) {
+        const item = resolve(itemOrId);
+        if (!item) {
+          return {
+            x: 0, y: 0, width: 0, height: 0,
+            left: 0, right: 0, top: 0, bottom: 0,
+            cx: 0, cy: 0, area: 0
+          };
+        }
+
+        if (rectCache.has(item.id)) {
+          return rectCache.get(item.id);
+        }
+
+        const width = getNumber(item.width ?? (item.geometry && item.geometry.width), 0);
+        const height = getNumber(item.height ?? (item.geometry && item.geometry.height), 0);
+
+        let x = getNumber(item.x ?? (item.position && item.position.x), 0);
+        let y = getNumber(item.y ?? (item.position && item.position.y), 0);
+
+        if (item.relativeTo === 'parent_top_left' && item.parentId && itemsById.has(item.parentId)) {
+          const parentRect = getRect(item.parentId);
+          x = parentRect.left + x;
+          y = parentRect.top + y;
+        } else if (item.relativeTo === 'parent_center' && item.parentId && itemsById.has(item.parentId)) {
+          const parentRect = getRect(item.parentId);
+          x = parentRect.cx + x;
+          y = parentRect.cy + y;
+        }
+
+        const rect = {
+          x,
+          y,
+          width,
+          height,
+          left: x - width / 2,
+          right: x + width / 2,
+          top: y - height / 2,
+          bottom: y + height / 2,
+          cx: x,
+          cy: y,
+          area: width * height
+        };
+
+        rectCache.set(item.id, rect);
+        return rect;
+      }
+
+      return { itemsById, getRect };
+    }
+
+    function sortImagesForNumbering(images, geometry) {
+      return [...images].sort((a, b) => {
+        const ra = geometry.getRect(a);
+        const rb = geometry.getRect(b);
+        const rowThreshold = Math.max(10, Math.min(ra.height, rb.height) * 0.35);
+        if (Math.abs(ra.top - rb.top) > rowThreshold) return ra.top - rb.top;
+        return ra.left - rb.left;
+      });
+    }
+
+    function pickContainingOrNearestFrame(item, frames, geometry) {
+      if (!frames.length) return null;
+
+      if (item.parentId) {
+        const directParent = frames.find(frame => frame.id === item.parentId);
+        if (directParent) return directParent;
+      }
+
+      const itemRect = geometry.getRect(item);
+
+      const overlapMatches = frames
+        .map(frame => {
+          const fr = geometry.getRect(frame);
+          const overlap = rectOverlapArea(itemRect, fr);
+          const overlapRatio = overlap / Math.max(1, itemRect.area);
+          const centerInside = pointInRect(itemRect.cx, itemRect.cy, expandRect(fr, 20));
+          return { frame, overlap, overlapRatio, centerInside, frameArea: fr.area };
+        })
+        .filter(match => match.overlap > 0 || match.centerInside)
+        .sort((a, b) => {
+          if (Math.abs(b.overlapRatio - a.overlapRatio) > 0.0001) return b.overlapRatio - a.overlapRatio;
+          if (Math.abs(b.overlap - a.overlap) > 1) return b.overlap - a.overlap;
+          return a.frameArea - b.frameArea;
+        });
+
+      if (overlapMatches.length) {
+        return overlapMatches[0].frame;
+      }
+
+      const containing = frames
+        .filter(frame => pointInRect(itemRect.cx, itemRect.cy, expandRect(geometry.getRect(frame), 20)))
+        .sort((a, b) => geometry.getRect(a).area - geometry.getRect(b).area);
+
+      if (containing.length) return containing[0];
+
+      return [...frames]
+        .map(frame => {
+          const fr = geometry.getRect(frame);
+          return { frame, distance: distancePointToRect(itemRect.cx, itemRect.cy, fr) };
+        })
+        .sort((a, b) => a.distance - b.distance)[0].frame;
+    }
+
+    function findColumnHeaderStickyForFrame(frame, stickies, frames, geometry) {
+      const fr = geometry.getRect(frame);
+
+      const candidates = stickies
+        .map(sticky => {
+          const text = sanitizePart(getItemText(sticky), '');
+          if (!text || text === 'sd') return null;
+          if (sticky.parentId) return null;
+
+          const sr = geometry.getRect(sticky);
+          if (pointInRect(sr.cx, sr.cy, expandRect(fr, 20))) return null;
+
+          const insideAnotherFrame = frames.some(otherFrame => {
+            if (otherFrame.id === frame.id) return false;
+            return pointInRect(sr.cx, sr.cy, expandRect(geometry.getRect(otherFrame), 20));
+          });
+          if (insideAnotherFrame) return null;
+
+          const gapTop = fr.top - sr.bottom;
+          if (gapTop < -40 || gapTop > Math.max(1600, fr.height * 3.2)) return null;
+
+          const overlap = horizontalOverlap(fr, sr);
+          const centerDx = Math.abs(sr.cx - fr.cx);
+          if (overlap < Math.max(40, fr.width * 0.12) && centerDx > Math.max(320, fr.width * 0.8)) return null;
+
+          const score = gapTop * 2 + centerDx * 0.35 - overlap * 0.2 - sr.area * 0.002;
+          return { sticky, score };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.score - b.score);
+
+      return candidates.length ? candidates[0].sticky : null;
+    }
+
+    function findFrameLabelSticky(frame, stickies, excludedIds, geometry) {
+      const fr = geometry.getRect(frame);
+
+      const candidates = stickies
+        .filter(sticky => !excludedIds.has(sticky.id))
+        .map(sticky => {
+          const text = sanitizePart(getItemText(sticky), '');
+          if (!text || text === 'sd') return null;
+          if (sticky.parentId === frame.id) return null;
+
+          const sr = geometry.getRect(sticky);
+          if (pointInRect(sr.cx, sr.cy, expandRect(fr, 10))) return null;
+
+          const gap = fr.left - sr.right;
+          if (gap < -60 || gap > Math.max(500, fr.width * 1.1)) return null;
+
+          const overlapY = Math.max(0, Math.min(fr.bottom, sr.bottom) - Math.max(fr.top, sr.top));
+          const verticalPenalty = overlapY > 0 ? 0 : verticalDistanceToRect(sr.cy, fr);
+          if (verticalPenalty > Math.max(500, fr.height * 0.55)) return null;
+
+          const score = gap * 2 + verticalPenalty - overlapY * 0.1 - sr.area * 0.01;
+          return { sticky, score };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.score - b.score);
+
+      return candidates.length ? candidates[0].sticky : null;
+    }
+
+    function isItemInsideFrame(item, frame, geometry, pad = 20) {
+      const ir = geometry.getRect(item);
+      const fr = geometry.getRect(frame);
+      if (item.parentId === frame.id) return true;
+      return pointInRect(ir.cx, ir.cy, expandRect(fr, pad));
+    }
+
+    function findInnerTypeStickies(frame, allStickies, excludedIds, geometry) {
+      const fr = geometry.getRect(frame);
+
+      return allStickies
+        .filter(sticky => {
+          if (excludedIds.has(sticky.id)) return false;
+
+          const text = sanitizePart(getItemText(sticky), '');
+          if (!text || text === 'sd') return false;
+          if (!isItemInsideFrame(sticky, frame, geometry, 25)) return false;
+
+          const sr = geometry.getRect(sticky);
+          if (sr.left > fr.left + fr.width * 0.55) return false;
+          if (sr.width > fr.width * 0.6) return false;
+          if (sr.height > fr.height * 0.3) return false;
+
+          return true;
+        })
+        .sort((a, b) => {
+          const ra = geometry.getRect(a);
+          const rb = geometry.getRect(b);
+          if (Math.abs(ra.top - rb.top) > 8) return ra.top - rb.top;
+          return ra.left - rb.left;
+        });
+    }
+
+    function findSdStickies(frame, allStickies, excludedIds, geometry) {
+      return allStickies.filter(sticky => {
+        if (excludedIds.has(sticky.id)) return false;
+
+        const text = sanitizePart(getItemText(sticky), '');
+        if (text !== 'sd') return false;
+
+        return isItemInsideFrame(sticky, frame, geometry, 30);
+      });
+    }
+
+    function getImagesForFrame(frame, images, geometry) {
+      const fr = geometry.getRect(frame);
+      const expandedFrame = expandRect(fr, Math.max(100, fr.width * 0.04), Math.max(120, fr.height * 0.08));
+
+      return images.filter(img => {
+        if (img.parentId === frame.id) return true;
+        const ir = geometry.getRect(img);
+        return pointInRect(ir.cx, ir.cy, expandedFrame) || rectOverlapArea(ir, fr) > 0;
+      });
+    }
+
+    function buildTypeZonesForFrame(frame, typeStickies, geometry) {
+      const fr = geometry.getRect(frame);
+
+      return typeStickies.map((sticky, index) => {
+        const sr = geometry.getRect(sticky);
+        const nextRect = typeStickies[index + 1] ? geometry.getRect(typeStickies[index + 1]) : null;
+        const topPad = Math.max(12, sr.height * 0.15);
+        const nextPad = nextRect ? Math.max(12, nextRect.height * 0.15) : 0;
+
+        const top = Math.max(fr.top, sr.top - topPad);
+        let bottom = nextRect ? Math.min(fr.bottom, nextRect.top - nextPad) : fr.bottom;
+
+        if (bottom < top + 12) {
+          bottom = nextRect ? Math.min(fr.bottom, (sr.bottom + nextRect.top) / 2) : fr.bottom;
+        }
+
+        return {
+          sticky,
+          zone: {
+            left: Math.max(fr.left, sr.left),
+            right: fr.right,
+            top,
+            bottom
+          }
+        };
+      });
+    }
+
+    function assignImageToTypeByZone(image, zones, geometry) {
+      const ir = geometry.getRect(image);
+
+      const candidates = zones
+        .map(zone => {
+          if (ir.right < zone.zone.left) return null;
+
+          const overlapArea = rectOverlapArea(ir, zone.zone);
+          const centerInside = pointInRect(ir.cx, ir.cy, zone.zone);
+
+          if (!overlapArea && !centerInside) return null;
+
+          const score =
+            overlapArea +
+            (centerInside ? Math.max(1, ir.area * 0.15) : 0) +
+            Math.max(0, ir.right - zone.zone.left);
+
+          return { zone, score };
+        })
+        .filter(Boolean)
+        .sort((a, b) => b.score - a.score);
+
+      return candidates.length ? candidates[0].zone : null;
+    }
+
+    function imageHasSd(image, sdStickies, geometry) {
+      const ir = geometry.getRect(image);
+      const expandedImage = expandRect(ir, 14);
+
+      return sdStickies.some(sd => {
+        const sr = geometry.getRect(sd);
+        return pointInRect(sr.cx, sr.cy, expandedImage);
+      });
+    }
+
+    async function getDownloadMeta(boardId, imageId) {
+      const metaResp = await fetch(`https://api.miro.com/v2/boards/${boardId}/items/${imageId}`, {
+        headers: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + ACCESS_TOKEN.trim() }
+      });
+      if (!metaResp.ok) {
+        const txt = await metaResp.text();
+        throw new Error(`meta error ${metaResp.status}: ${txt}`);
+      }
+
+      const metaJson = await metaResp.json();
+      const imageUrl = metaJson?.data?.imageUrl;
+      if (!imageUrl) throw new Error('no imageUrl in data');
+
+      const urlObj = new URL(imageUrl);
+      urlObj.searchParams.set('format', 'original');
+      urlObj.searchParams.set('redirect', 'false');
+
+      const resourceResp = await fetch(urlObj.toString(), {
+        headers: { 'Accept': 'application/json', 'Authorization': 'Bearer ' + ACCESS_TOKEN.trim() }
+      });
+      if (!resourceResp.ok) {
+        const txt = await resourceResp.text();
+        throw new Error(`resource error ${resourceResp.status}: ${txt}`);
+      }
+
+      const resourceJson = await resourceResp.json();
+      const downloadUrl = resourceJson.url;
+      if (!downloadUrl) throw new Error('no url in resource response');
+
+      return { metaJson, imageUrl, downloadUrl };
+    }
+
+    function buildStructuredContext(namingItems, selectedImages) {
+      const geometry = createGeometry(namingItems);
+      const frames = namingItems.filter(item => item.type === 'frame');
+      const stickies = namingItems.filter(isSticky);
+
+      const insideFrameById = new Map();
+      for (const frame of frames) {
+        const frameInside = stickies.filter(sticky => {
+          if (sticky.parentId === frame.id) return true;
+          return isItemInsideFrame(sticky, frame, geometry, 25);
+        });
+        insideFrameById.set(frame.id, frameInside);
+      }
+
+      const outsideStickies = stickies.filter(sticky => {
+        return !frames.some(frame => insideFrameById.get(frame.id).some(candidate => candidate.id === sticky.id));
+      });
+
+      const frameContextsById = new Map();
+
+      for (const frame of frames) {
+        const insideStickies = insideFrameById.get(frame.id) || [];
+        const selectedImagesForFrame = selectedImages.filter(image => {
+          const owner = pickContainingOrNearestFrame(image, frames, geometry);
+          return owner && owner.id === frame.id;
+        });
+
+        const columnCandidates = outsideStickies.filter(sticky => {
+          const text = sanitizePart(getItemText(sticky), '');
+          if (!text || text === 'sd') return false;
+
+          const fr = geometry.getRect(frame);
+          const sr = geometry.getRect(sticky);
+          const gapTop = fr.top - sr.bottom;
+          if (gapTop < -40 || gapTop > Math.max(1400, fr.height * 2.6)) return false;
+
+          const overlapX = Math.min(fr.right, sr.right) - Math.max(fr.left, sr.left);
+          const centerDx = Math.abs(sr.cx - fr.cx);
+          return overlapX > -Math.max(160, fr.width * 0.25) || centerDx <= Math.max(420, fr.width * 0.95);
+        });
+
+        const columnSticky = findColumnHeaderStickyForFrame(
+          frame,
+          columnCandidates.length ? columnCandidates : outsideStickies,
+          frames,
+          geometry
+        );
+
+        const excludedIds = new Set();
+        if (columnSticky) excludedIds.add(columnSticky.id);
+
+        const frameLabelCandidates = outsideStickies.filter(sticky => {
+          if (excludedIds.has(sticky.id)) return false;
+
+          const text = sanitizePart(getItemText(sticky), '');
+          if (!text || text === 'sd') return false;
+
+          const fr = geometry.getRect(frame);
+          const sr = geometry.getRect(sticky);
+          const gapLeft = fr.left - sr.right;
+          if (gapLeft < -40 || gapLeft > Math.max(520, fr.width * 1.25)) return false;
+
+          const verticalPenalty = verticalDistanceToRect(sr.cy, fr);
+          if (verticalPenalty > Math.max(560, fr.height * 0.65)) return false;
+
+          return true;
+        });
+
+        const frameLabel = findFrameLabelSticky(
+          frame,
+          frameLabelCandidates.length ? frameLabelCandidates : outsideStickies,
+          excludedIds,
+          geometry
+        );
+
+        if (frameLabel) excludedIds.add(frameLabel.id);
+
+        const strictTypeStickies = findInnerTypeStickies(frame, insideStickies, excludedIds, geometry);
+        const relaxedTypeStickies = insideStickies
+          .filter(sticky => {
+            if (excludedIds.has(sticky.id)) return false;
+            const text = sanitizePart(getItemText(sticky), '');
+            if (!text || text === 'sd') return false;
+
+            const fr = geometry.getRect(frame);
+            const sr = geometry.getRect(sticky);
+            if (sr.left > fr.left + fr.width * 0.72) return false;
+            if (sr.width > fr.width * 0.82) return false;
+            if (sr.height > fr.height * 0.34) return false;
+            return true;
+          })
+          .sort((a, b) => {
+            const ra = geometry.getRect(a);
+            const rb = geometry.getRect(b);
+            if (Math.abs(ra.top - rb.top) > 8) return ra.top - rb.top;
+            return ra.left - rb.left;
+          });
+
+        const typeStickies = strictTypeStickies.length ? strictTypeStickies : relaxedTypeStickies;
+        const sdStickies = findSdStickies(frame, insideStickies, excludedIds, geometry);
+
+        frameContextsById.set(frame.id, {
+          frame,
+          columnSticky,
+          frameLabel,
+          insideStickies,
+          outsideStickies,
+          typeStickies,
+          sdStickies,
+          selectedImages: selectedImagesForFrame
+        });
+      }
+
+      return {
+        geometry,
+        frames,
+        stickies,
+        selectedImages,
+        frameContextsById
+      };
+    }
+
+    function buildStructuredNameData(context, image, startIndex, indexWithinSelection) {
+      const { geometry, frames, selectedImages, frameContextsById } = context;
+
+      const targetFrame = pickContainingOrNearestFrame(image, frames, geometry);
+      if (!targetFrame) {
+        return {
+          base: 'group_frame_item',
+          number: String(startIndex + indexWithinSelection).padStart(3, '0'),
+          hasSd: false,
+          debug: {
+            reason: 'frame_not_found',
+            imageId: image.id
+          }
+        };
+      }
+
+      const frameContext = frameContextsById.get(targetFrame.id) || null;
+      const columnSticky = frameContext ? frameContext.columnSticky : null;
+      const frameLabel = frameContext ? frameContext.frameLabel : null;
+      const typeStickies = frameContext ? frameContext.typeStickies : [];
+      const sdStickies = frameContext ? frameContext.sdStickies : [];
+      const selectedImagesForFrame = frameContext ? frameContext.selectedImages : getImagesForFrame(targetFrame, selectedImages, geometry);
+
+      const mainName = sanitizePart(columnSticky ? getItemText(columnSticky) : '', 'group');
+      const frameName = sanitizePart(frameLabel ? getItemText(frameLabel) : '', 'frame');
+
+      if (!typeStickies.length) {
+        const sortedFallback = sortImagesForNumbering(selectedImagesForFrame.length ? selectedImagesForFrame : [image], geometry);
+        const idxFallback = Math.max(0, sortedFallback.findIndex(img => img.id === image.id));
+
+        return {
+          base: `${mainName}_${frameName}_item`,
+          number: String(startIndex + idxFallback).padStart(3, '0'),
+          hasSd: imageHasSd(image, sdStickies, geometry),
+          debug: {
+            reason: 'inner_sticky_not_found',
+            imageId: image.id,
+            frameId: targetFrame.id,
+            columnStickyId: columnSticky ? columnSticky.id : null,
+            frameLabelId: frameLabel ? frameLabel.id : null,
+            selectedImagesForFrame: selectedImagesForFrame.length,
+            innerStickyCount: 0
+          }
+        };
+      }
+
+      const zones = buildTypeZonesForFrame(targetFrame, typeStickies, geometry);
+      const assignedZone = assignImageToTypeByZone(image, zones, geometry);
+      const innerName = sanitizePart(assignedZone ? getItemText(assignedZone.sticky) : '', 'item');
+      const hasSd = imageHasSd(image, sdStickies, geometry);
+
+      const imagesForGroup = assignedZone
+        ? selectedImagesForFrame.filter(img => {
+            const zone = assignImageToTypeByZone(img, zones, geometry);
+            return zone && zone.sticky.id === assignedZone.sticky.id;
+          })
+        : selectedImagesForFrame;
+
+      const sortedGroup = sortImagesForNumbering(imagesForGroup.length ? imagesForGroup : selectedImagesForFrame, geometry);
+      const idx = Math.max(0, sortedGroup.findIndex(img => img.id === image.id));
+      const number = String(startIndex + idx).padStart(3, '0');
+
+      return {
+        base: `${mainName}_${frameName}_${innerName}`,
+        number,
+        hasSd,
+        debug: {
+          reason: assignedZone ? 'ok' : 'zone_not_found',
+          imageId: image.id,
+          frameId: targetFrame.id,
+          columnStickyId: columnSticky ? columnSticky.id : null,
+          frameLabelId: frameLabel ? frameLabel.id : null,
+          innerStickyId: assignedZone ? assignedZone.sticky.id : null,
+          selectedImagesForFrame: selectedImagesForFrame.length,
+          innerStickyCount: typeStickies.length
+        }
+      };
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const statusEl = document.getElementById('status');
+      const btn = document.getElementById('downloadBtn');
+      const nameModeMiro = document.getElementById('nameModeMiro');
+      const nameModeCustom = document.getElementById('nameModeCustom');
+      const nameModeStructured = document.getElementById('nameModeStructured');
+      const baseNameRow = document.getElementById('baseNameRow');
+      const baseNameInput = document.getElementById('baseName');
+      const prefixInput = document.getElementById('prefixInput');
+      const suffixInput = document.getElementById('suffixInput');
+      const startIndexInput = document.getElementById('startIndex');
+      const progressFill = document.getElementById('progressFill');
+      const progressLabel = document.getElementById('progressLabel');
+
+      function updateNameModeVisibility() {
+        baseNameRow.style.display = nameModeCustom.checked ? 'flex' : 'none';
+      }
+
+      nameModeMiro.addEventListener('change', updateNameModeVisibility);
+      nameModeCustom.addEventListener('change', updateNameModeVisibility);
+      nameModeStructured.addEventListener('change', updateNameModeVisibility);
+      updateNameModeVisibility();
+
+      function resetProgress() {
+        progressFill.style.width = '0%';
+        progressLabel.textContent = '';
+      }
+
+      function setProgress(current, total) {
+        if (!total) return;
+        const safeCurrent = Math.min(Math.max(current, 0), total);
+        const percent = Math.round((safeCurrent / total) * 100);
+        progressFill.style.width = percent + '%';
+        progressLabel.textContent = `${safeCurrent}/${total}`;
+      }
+
+      function setStatus(text, type = 'normal') {
+        console.log('[ImageDownloader]', text);
+        statusEl.textContent = text;
+        statusEl.classList.remove('status-ok', 'status-error');
+        if (type === 'ok') statusEl.classList.add('status-ok');
+        if (type === 'error') statusEl.classList.add('status-error');
+      }
+
+      async function downloadSelectedImages() {
+        if (!ACCESS_TOKEN || ACCESS_TOKEN === 'PASTE_YOUR_TOKEN_HERE') {
+          setStatus('ACCESS_TOKEN is empty. Put your token into panel.html.', 'error');
+          resetProgress();
+          return;
+        }
+
+        btn.disabled = true;
+        resetProgress();
+
+        try {
+          setStatus('Reading board info...');
+          const boardInfo = await miro.board.getInfo();
+          const boardId = boardInfo.id;
+
+          const selectedItems = await collectSelectedItems();
+          if (!selectedItems.length) {
+            setStatus('No items selected on the board.', 'error');
+            return;
+          }
+
+          const selectedImages = selectedItems.filter(item => item.type === 'image');
+          if (!selectedImages.length) {
+            setStatus('Selection does not contain image items.', 'error');
+            return;
+          }
+
+          const useMiroNames = nameModeMiro.checked;
+          const useStructuredNames = nameModeStructured.checked;
+
+          const baseNameRaw = baseNameInput.value.trim();
+          const prefixRaw = prefixInput.value.trim();
+          const suffixRaw = suffixInput.value.trim();
+          const startIndex = parseInt(startIndexInput.value, 10) || 1;
+
+          const prefix = normalizeName(prefixRaw);
+          const suffix = normalizeName(suffixRaw);
+          const baseName = sanitizePart(baseNameRaw, 'image');
+
+          let structuredContext = null;
+          if (useStructuredNames) {
+            const namingItems = await collectNamingItems(selectedItems);
+            structuredContext = buildStructuredContext(namingItems, selectedImages);
+
+            console.log('[ImageDownloader] structured context', {
+              selectedItems: selectedItems.length,
+              namingItems: namingItems.length,
+              frames: structuredContext.frames.length,
+              stickies: structuredContext.stickies.length,
+              selectedImages: selectedImages.length
+            });
+          }
+
+          const total = selectedImages.length;
+          setStatus(`Found ${total} images. Fetching data from REST API...`);
+          setProgress(0, total);
+
+          const downloaded = [];
+          const errors = [];
+
+          for (let i = 0; i < total; i++) {
+            const img = selectedImages[i];
+            const prefixLabel = `(${i + 1}/${total}) [${img.id}]`;
+
+            try {
+              setStatus(`${prefixLabel} Preparing file...`);
+              const { metaJson, imageUrl, downloadUrl } = await getDownloadMeta(boardId, img.id);
+
+              const fileResp = await fetch(downloadUrl);
+              if (!fileResp.ok) {
+                const txt = await fileResp.text();
+                throw new Error(`download error ${fileResp.status}: ${txt}`);
+              }
+
+              const blob = await fileResp.blob();
+              const blobUrl = URL.createObjectURL(blob);
+
+              const extFromType = (() => {
+                const ct = fileResp.headers.get('Content-Type') || '';
+                if (ct.includes('jpeg')) return 'jpg';
+                if (ct.includes('png')) return 'png';
+                if (ct.includes('gif')) return 'gif';
+                if (ct.includes('svg')) return 'svg';
+                if (ct.includes('webp')) return 'webp';
+                return 'bin';
+              })();
+
+              let finalName = '';
+
+              if (useStructuredNames) {
+                const structured = buildStructuredNameData(structuredContext, img, startIndex, i);
+                console.log('[ImageDownloader] structured naming', structured.debug);
+
+                const parts = [];
+                if (prefix) parts.push(prefix);
+                parts.push(structured.base);
+                if (suffix) parts.push(suffix);
+                if (structured.hasSd) parts.push('sd');
+                parts.push(structured.number);
+                finalName = parts.filter(Boolean).join('_');
+              } else if (useMiroNames) {
+                const nameFromMetadata = extractNameFromMetadata(metaJson.metadata || {});
+                const title = (metaJson.title && metaJson.title.trim()) || '';
+                const urlBaseName = extractBaseNameFromUrl(downloadUrl) || extractBaseNameFromUrl(imageUrl);
+                const junkNames = ['original', 'image'];
+                const miroNameRaw = nameFromMetadata || title || urlBaseName || '';
+                const miroName = junkNames.includes(String(miroNameRaw).toLowerCase()) ? '' : sanitizePart(miroNameRaw, '');
+                const fallbackName = `${baseName}_${String(startIndex + i).padStart(3, '0')}`;
+
+                const parts = [];
+                if (prefix) parts.push(prefix);
+                parts.push(miroName || fallbackName);
+                if (suffix) parts.push(suffix);
+                finalName = parts.filter(Boolean).join('_');
+              } else {
+                const num = String(startIndex + i).padStart(3, '0');
+                const parts = [];
+                if (prefix) parts.push(prefix);
+                parts.push(baseName);
+                if (suffix) parts.push(suffix);
+                parts.push(num);
+                finalName = parts.filter(Boolean).join('_');
+              }
+
+              const fileName = `${finalName}.${extFromType}`;
+              const a = document.createElement('a');
+              a.href = blobUrl;
+              a.download = fileName;
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+              URL.revokeObjectURL(blobUrl);
+              downloaded.push(fileName);
+            } catch (e) {
+              console.error('Unexpected error for image', img.id, e);
+              errors.push(`${prefixLabel} ${e.message || 'unexpected error'}`);
+            } finally {
+              setProgress(i + 1, total);
+            }
+          }
+
+          if (downloaded.length) {
+            let msg = `Done. Downloaded ${downloaded.length} files.`;
+            if (errors.length) msg += '\nSome errors:\n' + errors.join('\n');
+            setStatus(msg, errors.length ? 'error' : 'ok');
+          } else {
+            let msg = 'Failed to download any images.';
+            if (errors.length) msg += '\nDetails:\n' + errors.join('\n');
+            setStatus(msg, 'error');
+          }
+        } catch (err) {
+          console.error('Fatal error:', err);
+          setStatus('Unexpected error (see panel console): ' + (err.message || err), 'error');
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      setStatus('Select images on the board and click Download.');
+      resetProgress();
+      console.log('[ImageDownloader] panel loaded');
+      btn.addEventListener('click', () => {
+        console.log('[ImageDownloader] button clicked');
+        downloadSelectedImages();
+      });
+    });
+  </script>
 </body>
 </html>
