@@ -1,4 +1,4 @@
-// Reference Board Builder_16
+// Reference Board Builder_17
 // Stages A-D:
 // - read folder tree
 // - analyze structure
@@ -13,7 +13,7 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
-const APP_VERSION = "Reference Board Builder_16";
+const APP_VERSION = "Reference Board Builder_17";
 const APP_META_ID = "reference-board-builder";
 const FRAME_VERTICAL_GAP = 1200;
 const COLUMN_HEADER_FILL = "#f4d44d";
@@ -28,8 +28,8 @@ const OUTLINE_HEADER_OFFSET_X = 150000;
 const OUTLINE_HEADER_OFFSET_Y = 45000;
 const OUTLINE_CATEGORY_WIDTH = 6000;
 const OUTLINE_CATEGORY_HEIGHT = 2500;
-const OUTLINE_SUBTYPE_WIDTH = 3500;
-const OUTLINE_SUBTYPE_HEIGHT = 1500;
+const OUTLINE_SUBTYPE_WIDTH = 8040;
+const OUTLINE_SUBTYPE_HEIGHT = 3350;
 const OUTLINE_SUBTYPE_GAP_X = 600;
 const OUTLINE_SUBTYPE_GAP_Y = 350;
 const OUTLINE_SECTION_GAP_Y = 1500;
@@ -326,7 +326,7 @@ function readConfig() {
     imageGap: getNumber("imageGap", 25),
     groupGap: getNumber("groupGap", 300),
     innerPadding: getNumber("innerPadding", 120),
-    columnGap: getNumber("columnGap", 18000),
+    columnGap: getNumber("columnGap", 12000),
     headerToFramesGap: getNumber("headerToFramesGap", 4000),
     outlineOffsetX: getNumber("outlineOffsetX", OUTLINE_HEADER_OFFSET_X),
     outlineOffsetY: getNumber("outlineOffsetY", OUTLINE_HEADER_OFFSET_Y),
@@ -642,7 +642,7 @@ function readConfig() {
     imageGap: getNumber("imageGap", 25),
     groupGap: getNumber("groupGap", 300),
     innerPadding: getNumber("innerPadding", 120),
-    columnGap: getNumber("columnGap", 18000),
+    columnGap: getNumber("columnGap", 12000),
     headerToFramesGap: getNumber("headerToFramesGap", 4000),
     outlineOffsetX: getNumber("outlineOffsetX", OUTLINE_HEADER_OFFSET_X),
     outlineOffsetY: getNumber("outlineOffsetY", OUTLINE_HEADER_OFFSET_Y),
@@ -1840,7 +1840,7 @@ async function renderScene(scene, mode) {
 
     for (const subtypeShape of section.subtypeShapes) {
       const subtypeOutlineWidget = await createShapeSafe({
-        shape: "rectangle",
+        shape: "round_rectangle",
         x: subtypeShape.x,
         y: subtypeShape.y,
         width: subtypeShape.width,
