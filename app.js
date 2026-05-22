@@ -1,4 +1,4 @@
-// Reference Board Builder_18
+// Reference Board Builder_19
 // Stages A-D:
 // - read folder tree
 // - analyze structure
@@ -13,7 +13,7 @@ const SAT_BOOST = 4.0;
 const SAT_GROUP_THRESHOLD = 35;
 const NO_COLOR_KEY = "__no_color__";
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "bmp", "gif", "avif"]);
-const APP_VERSION = "Reference Board Builder_18";
+const APP_VERSION = "Reference Board Builder_19";
 const APP_META_ID = "reference-board-builder";
 const FRAME_VERTICAL_GAP = 1200;
 const COLUMN_HEADER_FILL = "#f4d44d";
@@ -32,7 +32,7 @@ const OUTLINE_SUBTYPE_WIDTH = 3500;
 const OUTLINE_SUBTYPE_HEIGHT = 1500;
 const OUTLINE_SUBTYPE_GAP_X = 600;
 const OUTLINE_SUBTYPE_GAP_Y = 350;
-const OUTLINE_SECTION_GAP_Y = 1500;
+const OUTLINE_SECTION_GAP_Y = 8040;
 const COLUMN_HEADER_BORDER_WIDTH = 24;
 const COLUMN_HEADER_FONT_SIZE = 700;
 const SUBTYPE_HEADER_FONT_SIZE = 200;
@@ -1343,9 +1343,7 @@ function buildScene(layout, viewport) {
         });
       });
 
-      const sectionWidth = config.outlineCategoryWidth
-        + (section.subtypeShapes.length ? config.outlineSubtypeGapX + config.outlineSubtypeWidth : 0);
-      sectionLeft += sectionWidth + config.outlineSectionGapY;
+      sectionLeft += config.outlineCategoryWidth + config.outlineSectionGapY;
 
       return section;
     });
@@ -1816,7 +1814,7 @@ async function renderScene(scene, mode) {
         borderColor: OUTLINE_COLOR,
         borderWidth: 3,
         color: "#111111",
-        fontSize: 800,
+        fontSize: 500,
         textAlign: "center",
         textAlignVertical: "middle",
       },
